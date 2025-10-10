@@ -37,7 +37,7 @@ pub fn fetch_oracle_price(
             .checked_mul(100_000_000)
             .ok_or(AegisError::Overflow)?
     } else {
-        let divisor = 10u128.pow((-expo) as u32);
+        let divisor = 10u128.pow(expo.abs() as u32);
         (price as u128)
             .checked_mul(100_000_000)
             .ok_or(AegisError::Overflow)?
@@ -106,7 +106,7 @@ pub fn calculate_twap(
             .checked_mul(100_000_000)
             .ok_or(AegisError::Overflow)?
     } else {
-        let divisor = 10u128.pow((-expo) as u32);
+        let divisor = 10u128.pow(expo.abs() as u32);
         (price as u128)
             .checked_mul(100_000_000)
             .ok_or(AegisError::Overflow)?
