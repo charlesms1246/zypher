@@ -72,8 +72,9 @@ pub mod aegis_protocol {
             AegisError::InvalidCollateralIndex
         );
 
+        let expected_oracle = config.oracle_accounts[collateral_index as usize];
         // Fetch oracle price
-        let price = fetch_oracle_price(&ctx.accounts.oracle_account, Clock::get()?.unix_timestamp)?;
+        let price = fetch_oracle_price(&ctx.accounts.oracle_account, Clock::get()?.unix_timestamp, expected_oracle)?;
 
         // Calculate collateral value with overflow checks
         let collateral_value = (deposit_amount as u128)
@@ -100,7 +101,7 @@ pub mod aegis_protocol {
         token::transfer(cpi_ctx, deposit_amount)?;
 
         // Mint $AEGIS to user
-        let seeds = &[b"config", &[ctx.bumps.config]];
+        let seeds = &[b"config".as_ref(), &[ctx.bumps.config]];
         let signer = &[&seeds[..]];
 
         let cpi_accounts = MintTo {
@@ -248,8 +249,10 @@ pub mod aegis_protocol {
             AegisError::InvalidProof
         );
 
+        let expected_oracle = market.resolution_oracle;
+
         // Fetch oracle outcome
-        let outcome = fetch_oracle_outcome(&ctx.accounts.oracle_account)?;
+        let outcome = fetch_oracle_outcome(&ctx.accounts.oracle_account, Clock::get()?.unix_timestamp, expected_oracle)?;
 
         // Update market state
         let market = &mut ctx.accounts.market;

@@ -2,137 +2,122 @@ use anchor_lang::prelude::*;
 use pyth_sdk_solana::load_price_feed_from_account_info;
 use crate::errors::AegisError;
 
-const MAX_ORACLE_STALENESS: i64 = 60; // 60 seconds max staleness
+const MAX_ORACLE_STALENESS: u64 = 60; // seconds
 
-/// Fetches and validates price from Pyth oracle
+/// Fetches and validates the latest Pyth price feed on-chain.
 pub fn fetch_oracle_price(
     oracle_account: &AccountInfo,
     current_timestamp: i64,
+    expected_oracle_pubkey: Pubkey, // recommended: verify oracle identity
 ) -> Result<u64> {
+    // Ensure the provided account is the correct oracle
+    require_keys_eq!(oracle_account.key(), expected_oracle_pubkey, AegisError::InvalidOracle);
+
+    // Load the Pyth price feed from the Solana account info
     let price_feed = load_price_feed_from_account_info(oracle_account)
         .map_err(|_| AegisError::InvalidOracle)?;
 
+    // Retrieve the current price, ensuring it’s fresh
     let price_data = price_feed
-        .get_current_price()
-        .ok_or(AegisError::InvalidOracle)?;
+        .get_price_no_older_than(current_timestamp, MAX_ORACLE_STALENESS)
+        .ok_or(AegisError::StaleOraclePrice)?;
 
-    // Check if price is stale
-    let publish_time = price_data.publish_time;
-    require!(
-        current_timestamp - publish_time <= MAX_ORACLE_STALENESS,
-        AegisError::StaleOraclePrice
-    );
+    require!(price_data.price > 0, AegisError::InvalidOracle);
 
-    // Pyth prices have an exponent, normalize to 8 decimals (matching our ratio precision)
-    let price = price_data.price;
-    let expo = price_data.expo;
-    
-    require!(price > 0, AegisError::InvalidOracle);
+    // Normalize to 8 decimals (e.g. 1.23456789 → 123456789)
+    let normalized_price = normalize_to_8_decimals(price_data.price, price_data.expo)?;
 
-    // Convert to u64 with 8 decimal precision
-    let normalized_price = if expo >= 0 {
-        (price as u128)
-            .checked_mul(10u128.pow(expo as u32))
-            .ok_or(AegisError::Overflow)?
-            .checked_mul(100_000_000)
-            .ok_or(AegisError::Overflow)?
-    } else {
-        let divisor = 10u128.pow(expo.abs() as u32);
-        (price as u128)
-            .checked_mul(100_000_000)
-            .ok_or(AegisError::Overflow)?
-            .checked_div(divisor)
-            .ok_or(AegisError::Overflow)?
-    };
-
-    require!(
-        normalized_price <= u64::MAX as u128,
-        AegisError::Overflow
-    );
-
-    Ok(normalized_price as u64)
+    Ok(normalized_price)
 }
 
-/// Fetches oracle outcome for prediction market settlement
-pub fn fetch_oracle_outcome(oracle_account: &AccountInfo) -> Result<bool> {
+/// Fetches oracle-derived outcome for prediction settlement.
+/// Here we simply check if the price is above 0.
+pub fn fetch_oracle_outcome(
+    oracle_account: &AccountInfo,
+    current_timestamp: i64,
+    expected_oracle_pubkey: Pubkey,
+) -> Result<bool> {
+    require_keys_eq!(oracle_account.key(), expected_oracle_pubkey, AegisError::InvalidOracle);
+
     let price_feed = load_price_feed_from_account_info(oracle_account)
         .map_err(|_| AegisError::InvalidOracle)?;
 
     let price_data = price_feed
-        .get_current_price()
-        .ok_or(AegisError::InvalidOracle)?;
+        .get_price_no_older_than(current_timestamp, MAX_ORACLE_STALENESS)
+        .ok_or(AegisError::StaleOraclePrice)?;
 
-    // Simple outcome determination: price > 0 = true, else false
-    // In production, this would use more sophisticated logic
     Ok(price_data.price > 0)
 }
 
-/// Calculates time-weighted average price (TWAP) from multiple oracle readings
-/// This helps prevent flash loan attacks and price manipulation
+/// Calculates the time-weighted average price (TWAP) using Pyth’s EMA price feed.
 pub fn calculate_twap(
     oracle_account: &AccountInfo,
-    time_window: i64,
+    current_timestamp: i64,
+    expected_oracle_pubkey: Pubkey,
 ) -> Result<u64> {
-    // In a real implementation, this would:
-    // 1. Fetch historical price data from the oracle
-    // 2. Calculate weighted average over the time window
-    // 3. Return the TWAP value
-    
-    // For now, we use current price as placeholder
-    // Pyth provides TWAP functionality through their EMA price
+    require_keys_eq!(oracle_account.key(), expected_oracle_pubkey, AegisError::InvalidOracle);
+
     let price_feed = load_price_feed_from_account_info(oracle_account)
         .map_err(|_| AegisError::InvalidOracle)?;
 
     let ema_price = price_feed
-        .get_ema_price()
-        .ok_or(AegisError::InvalidOracle)?;
+        .get_ema_price_no_older_than(current_timestamp, MAX_ORACLE_STALENESS)
+        .ok_or(AegisError::StaleOraclePrice)?;
 
-    let current_timestamp = Clock::get()?.unix_timestamp;
-    require!(
-        current_timestamp - ema_price.publish_time <= time_window,
-        AegisError::StaleOraclePrice
-    );
+    require!(ema_price.price > 0, AegisError::InvalidOracle);
 
-    // Normalize EMA price to 8 decimals
-    let price = ema_price.price;
-    let expo = ema_price.expo;
-    
-    require!(price > 0, AegisError::InvalidOracle);
+    let normalized_price = normalize_to_8_decimals(ema_price.price, ema_price.expo)?;
 
-    let normalized_price = if expo >= 0 {
-        (price as u128)
-            .checked_mul(10u128.pow(expo as u32))
-            .ok_or(AegisError::Overflow)?
-            .checked_mul(100_000_000)
-            .ok_or(AegisError::Overflow)?
-    } else {
-        let divisor = 10u128.pow(expo.abs() as u32);
-        (price as u128)
-            .checked_mul(100_000_000)
-            .ok_or(AegisError::Overflow)?
-            .checked_div(divisor)
-            .ok_or(AegisError::Overflow)?
-    };
-
-    require!(
-        normalized_price <= u64::MAX as u128,
-        AegisError::Overflow
-    );
-
-    Ok(normalized_price as u64)
+    Ok(normalized_price)
 }
 
-/// Validates that an oracle account is properly configured
-pub fn validate_oracle_account(oracle_account: &AccountInfo) -> Result<()> {
+/// Ensures oracle account is valid and actively publishing.
+pub fn validate_oracle_account(
+    oracle_account: &AccountInfo,
+    current_timestamp: i64,
+    expected_oracle_pubkey: Pubkey,
+) -> Result<()> {
+    require_keys_eq!(oracle_account.key(), expected_oracle_pubkey, AegisError::InvalidOracle);
+
     let price_feed = load_price_feed_from_account_info(oracle_account)
         .map_err(|_| AegisError::InvalidOracle)?;
 
-    // Ensure oracle is active and publishing
-    let current_price = price_feed
-        .get_current_price()
-        .ok_or(AegisError::InvalidOracle)?;
+    let price_data = price_feed
+        .get_price_no_older_than(current_timestamp, MAX_ORACLE_STALENESS)
+        .ok_or(AegisError::StaleOraclePrice)?;
 
-    require!(current_price.price != 0, AegisError::InvalidOracle);
+    require!(price_data.price != 0, AegisError::InvalidOracle);
 
     Ok(())
+}
+
+/// Converts Pyth's fixed-point price (a × 10^e) to a u64 with 8 decimal precision.
+fn normalize_to_8_decimals(price: i64, expo: i32) -> Result<u64> {
+    require!(price > 0, AegisError::InvalidOracle);
+
+    let price_u128 = price as i128;
+    let scaled = if expo < 0 {
+        // expo = -8 → divide by 10^8 to normalize
+        let divisor = 10u128
+            .checked_pow((-expo) as u32)
+            .ok_or(AegisError::Overflow)?;
+        (price_u128 as u128)
+            .checked_mul(100_000_000) // target 8 decimals
+            .ok_or(AegisError::Overflow)?
+            .checked_div(divisor)
+            .ok_or(AegisError::Overflow)?
+    } else {
+        // expo >= 0 → multiply by 10^expo
+        let multiplier = 10u128
+            .checked_pow(expo as u32)
+            .ok_or(AegisError::Overflow)?;
+        (price_u128 as u128)
+            .checked_mul(multiplier)
+            .ok_or(AegisError::Overflow)?
+            .checked_mul(100_000_000)
+            .ok_or(AegisError::Overflow)?
+    };
+
+    require!(scaled <= u64::MAX as u128, AegisError::Overflow);
+    Ok(scaled as u64)
 }

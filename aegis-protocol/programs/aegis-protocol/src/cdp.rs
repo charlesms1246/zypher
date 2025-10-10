@@ -19,7 +19,8 @@ pub fn verify_collateral_ratio(
 
     for (i, amount) in position.collateral_amounts.iter().enumerate() {
         if *amount > 0 {
-            let price = fetch_oracle_price(&oracle_accounts[i], current_time)?;
+            let expected_oracle = config.oracle_accounts[i];
+            let price = fetch_oracle_price(&oracle_accounts[i], current_time, expected_oracle)?;
             let value = (*amount as u128)
                 .checked_mul(price as u128)
                 .ok_or(AegisError::Overflow)?;
@@ -59,7 +60,8 @@ pub fn check_liquidation_condition(
     // Collect prices from all oracles
     for (i, amount) in position.collateral_amounts.iter().enumerate() {
         if *amount > 0 {
-            let price = fetch_oracle_price(&oracle_accounts[i], current_time)?;
+            let expected_oracle = config.oracle_accounts[i];
+            let price = fetch_oracle_price(&oracle_accounts[i], current_time, expected_oracle)?;
             oracle_prices.push(price);
             
             let value = (*amount as u128)
@@ -120,7 +122,8 @@ pub fn calculate_health_factor(
 
     for (i, amount) in position.collateral_amounts.iter().enumerate() {
         if *amount > 0 && i < oracle_accounts.len() {
-            let price = fetch_oracle_price(&oracle_accounts[i], current_time)?;
+            let expected_oracle = config.oracle_accounts[i];
+            let price = fetch_oracle_price(&oracle_accounts[i], current_time, expected_oracle)?;
             let value = (*amount as u128)
                 .checked_mul(price as u128)
                 .ok_or(AegisError::Overflow)?;
@@ -154,7 +157,8 @@ pub fn calculate_max_mintable(
 
     for (i, amount) in collateral_amounts.iter().enumerate() {
         if *amount > 0 && i < oracle_accounts.len() {
-            let price = fetch_oracle_price(&oracle_accounts[i], current_time)?;
+            let expected_oracle = config.oracle_accounts[i];
+            let price = fetch_oracle_price(&oracle_accounts[i], current_time, expected_oracle)?;
             let value = (*amount as u128)
                 .checked_mul(price as u128)
                 .ok_or(AegisError::Overflow)?;

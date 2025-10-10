@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::keccak;
+use solana_poseidon::{hashv, Endianness, Parameters};
 use crate::errors::AegisError;
 
 /// Computes a privacy-preserving hash of user position using Poseidon-like construction
@@ -20,9 +20,8 @@ pub fn compute_position_hash(
     
     data.extend_from_slice(&minted_aegis.to_le_bytes());
     
-    // Use keccak256 as placeholder for Poseidon hash
-    // In production, replace with actual Poseidon implementation
-    let hash = keccak::hash(&data);
+    // Use Poseidon hash
+    let hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[&data]).unwrap();
     hash.to_bytes()
 }
 
@@ -60,8 +59,8 @@ pub fn verify_zk_proof(proof: &[u8], commitment: &[u8; 32]) -> bool {
     
     // Simple check: verify proof contains the commitment
     // Real implementation would do full ZK verification with halo2
-    let proof_hash = keccak::hash(proof);
-    let commitment_hash = keccak::hash(commitment);
+    let proof_hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[proof]).unwrap();
+    let commitment_hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[commitment]).unwrap();
     
     // Check if hashes match (simplified verification)
     proof_hash.to_bytes()[..16] == commitment_hash.to_bytes()[..16]
@@ -73,7 +72,7 @@ pub fn generate_question_commitment(question: &str, nonce: u64) -> [u8; 32] {
     data.extend_from_slice(question.as_bytes());
     data.extend_from_slice(&nonce.to_le_bytes());
     
-    let hash = keccak::hash(&data);
+    let hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[&data]).unwrap();
     hash.to_bytes()
 }
 
@@ -103,8 +102,8 @@ pub fn verify_encrypted_hash(
     encrypted_data: &[u8],
     expected_hash: &[u8; 32],
 ) -> Result<bool> {
-    let computed_hash = keccak::hash(encrypted_data);
-    Ok(&computed_hash.to_bytes() == expected_hash)
+    let computed_hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[encrypted_data]).unwrap();
+    Ok(computed_hash.to_bytes() == *expected_hash)
 }
 
 /// Creates a Merkle proof for selective disclosure
@@ -127,7 +126,7 @@ pub fn create_merkle_proof(
         };
         
         if sibling_index < tree_data.len() {
-            let sibling_hash = keccak::hash(&tree_data[sibling_index]);
+            let sibling_hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[&tree_data[sibling_index]]).unwrap();
             proof.push(sibling_hash.to_bytes());
         }
         
@@ -145,7 +144,7 @@ pub fn verify_merkle_proof(
     root: &[u8; 32],
     index: usize,
 ) -> bool {
-    let mut current_hash = keccak::hash(leaf).to_bytes();
+    let mut current_hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[leaf]).unwrap().to_bytes();
     let mut current_index = index;
     
     for sibling in proof {
@@ -159,7 +158,7 @@ pub fn verify_merkle_proof(
             combined.extend_from_slice(&current_hash);
         }
         
-        current_hash = keccak::hash(&combined).to_bytes();
+        current_hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[&combined]).unwrap().to_bytes();
         current_index /= 2;
     }
     
@@ -182,12 +181,12 @@ pub fn generate_zk_commitment(
     for input in private_inputs {
         private_data.extend_from_slice(&input.to_le_bytes());
     }
-    let private_hash = keccak::hash(&private_data);
+    let private_hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[&private_data]).unwrap();
     
     // Combine with public inputs
     data.extend_from_slice(&private_hash.to_bytes());
     
-    let commitment = keccak::hash(&data);
+    let commitment = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[&data]).unwrap();
     commitment.to_bytes()
 }
 
