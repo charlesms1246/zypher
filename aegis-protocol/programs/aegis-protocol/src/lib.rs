@@ -13,7 +13,7 @@ use oracle_integration::*;
 use prediction_market::*;
 use privacy_utils::*;
 
-declare_id!("AEGiS1111111111111111111111111111111111111111");
+declare_id!("9V6u9v6UcHiL5ajNW6mMGHWfXGWspiScELSPWkHptDY");
 
 #[program]
 pub mod aegis_protocol {
