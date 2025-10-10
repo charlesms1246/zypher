@@ -1,17 +1,47 @@
+[package]
+name = "aegis-protocol"
+version = "0.1.0"
+description = "Privacy-preserving CDP system with ZK prediction markets"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "aegis_protocol"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
+anchor-spl = "0.30.1"
+solana-program = "1.18.0"
+pyth-sdk-solana = "0.8.0"
+# ZK proof dependencies (placeholder - halo2 integration would go here)
+# In production, uncomment and configure:
+# halo2 = { git = "https://github.com/zcash/halo2", branch = "main" }
+# poseidon-hash = "0.1.0"
+# Compression for large account data
+# solana-compression = "0.1.0"
+
+[dev-dependencies]
+solana-program-test = "1.18.0"
+solana-sdk = "1.18.0"
+spl-token = "4.0.0"
+
 [workspace]
-members = [
-    "programs/*"
-]
+members = ["programs/*"]
 resolver = "2"
 
 [profile.release]
 overflow-checks = true
 lto = "fat"
 codegen-units = 1
+
 [profile.release.build-override]
 opt-level = 3
 incremental = false
 codegen-units = 1
-
-[dependencies]
-anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
