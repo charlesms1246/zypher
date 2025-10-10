@@ -5,14 +5,14 @@ package_manager = "yarn"
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-aegis_protocol = "55XeLRYQTn24sEDvTxM2UfDQp8z8oZ7mA8DSkFmD2kzN"
+[programs.devnet]
+aegis_protocol = "9V6u9v6UcHiL5ajNW6mMGHWfXGWspiScELSPWkHptDY"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
