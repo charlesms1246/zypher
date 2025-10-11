@@ -15,7 +15,7 @@ use privacy_utils::*;
 use zk_circuits::{verify_proof, get_verifying_key, get_proof_params, FieldElement as Fp};
 use halo2curves::group::ff::PrimeField;
 
-declare_id!("3AT5kUMBhHHFkc7Th21Hk3H6JGHLvA6MAJxUwUU7aDJW");
+declare_id!("2cgHiWhbyQiiCrhtcy9EEib1XLRAJGcbeKA7XkpS3ssa");
 
 #[program]
 pub mod aegis_protocol {
