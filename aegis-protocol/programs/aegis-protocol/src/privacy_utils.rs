@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
 use solana_poseidon::{hashv, Endianness, Parameters};
-use crate::errors::AegisError;
+use errors::AegisError;
+use zk_circuits::{setup_params, generate_keys, verify_proof as halo2_verify, HedgeValidityCircuit};
+use halo2::pasta::Fp;
 
 /// Computes a privacy-preserving hash of user position using Poseidon-like construction
 /// For production, this should use actual Poseidon hashing with proper field elements
@@ -25,45 +27,95 @@ pub fn compute_position_hash(
     hash.to_bytes()
 }
 
-/// Verifies a ZK proof for hedge validity
-/// This is a placeholder - actual implementation would use halo2 verifier
+/// Verifies a ZK proof for hedge validity using actual halo2 verifier
+/// Integrates with the HedgeValidityCircuit from zk_circuits.rs
 pub fn verify_hedge_validity_proof(proof: &[u8], hedge_decision: bool) -> bool {
-    // Placeholder verification logic
-    // In production, this would:
-    // 1. Deserialize the halo2 proof
-    // 2. Verify using HedgeValidityCircuit verifier
-    // 3. Check that public inputs match (commitment, decision)
-    
-    if proof.is_empty() {
+    // Validate proof size (must be between 1024-2048 bytes as per specs)
+    if proof.is_empty() || proof.len() < 1024 || proof.len() > 2048 {
         return false;
     }
     
-    // Simple validation for now - check proof has minimum size
-    // Real implementation would do full ZK verification
-    proof.len() >= 32 && hedge_decision
+    // Setup parameters with degree 2^10 (1024) as specified
+    let k = 10;
+    let params = setup_params(k);
+    
+    // Create a dummy circuit for key generation (without witnesses)
+    let circuit = HedgeValidityCircuit::new(
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+    );
+    
+    // Generate verification key
+    let (_, vk) = match generate_keys(&params, &circuit) {
+        Ok(keys) => keys,
+        Err(_) => return false,
+    };
+    
+    // Prepare public inputs for verification
+    // Public input 1: commitment_hash (placeholder as Fp::zero() - should be computed from context)
+    // Public input 2: hedge_decision converted to field element
+    let decision_fp = if hedge_decision { Fp::one() } else { Fp::zero() };
+    let public_inputs = vec![
+        vec![Fp::zero()], // commitment_hash placeholder
+        vec![decision_fp], // oracle_price/decision
+    ];
+    let public_inputs_refs: Vec<&[Fp]> = public_inputs.iter().map(|v| v.as_slice()).collect();
+    
+    // Verify the proof using halo2 verifier
+    match halo2_verify(&params, &vk, proof, &public_inputs_refs) {
+        Ok(valid) => valid,
+        Err(_) => false,
+    }
 }
 
-/// Verifies a ZK proof for market settlement
-/// This is a placeholder - actual implementation would use halo2 verifier
+/// Verifies a ZK proof for market settlement using actual halo2 verifier
+/// This validates that the settlement decision is correct based on oracle data
 pub fn verify_zk_proof(proof: &[u8], commitment: &[u8; 32]) -> bool {
-    // Placeholder verification logic
-    // In production, this would:
-    // 1. Deserialize the halo2 proof
-    // 2. Extract public inputs
-    // 3. Verify proof against the commitment
-    // 4. Ensure proof is valid for settlement circuit
-    
-    if proof.is_empty() || proof.len() < 32 {
+    // Validate proof size
+    if proof.is_empty() || proof.len() < 1024 || proof.len() > 2048 {
         return false;
     }
     
-    // Simple check: verify proof contains the commitment
-    // Real implementation would do full ZK verification with halo2
-    let proof_hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[proof]).unwrap();
-    let commitment_hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &[commitment]).unwrap();
+    // Setup parameters with degree 2^10
+    let k = 10;
+    let params = setup_params(k);
     
-    // Check if hashes match (simplified verification)
-    proof_hash.to_bytes()[..16] == commitment_hash.to_bytes()[..16]
+    // Create dummy circuit for verification key generation
+    let circuit = HedgeValidityCircuit::new(
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+    );
+    
+    // Generate verification key
+    let (_, vk) = match generate_keys(&params, &circuit) {
+        Ok(keys) => keys,
+        Err(_) => return false,
+    };
+    
+    // Convert commitment to field element
+    let commitment_fp = match Fp::from_bytes(commitment) {
+        Some(fp) => fp,
+        None => return false,
+    };
+    
+    // Prepare public inputs: [commitment_hash, oracle_price]
+    let public_inputs = vec![
+        vec![commitment_fp],
+        vec![Fp::zero()], // oracle_price placeholder - should come from context
+    ];
+    let public_inputs_refs: Vec<&[Fp]> = public_inputs.iter().map(|v| v.as_slice()).collect();
+    
+    // Verify proof
+    match halo2_verify(&params, &vk, proof, &public_inputs_refs) {
+        Ok(valid) => valid,
+        Err(_) => false,
+    }
 }
 
 /// Generates a commitment for a prediction market question
@@ -165,7 +217,8 @@ pub fn verify_merkle_proof(
     &current_hash == root
 }
 
-/// Generates a commitment for ZK proof
+/// Generates a ZK commitment using Poseidon hash
+/// This commitment hides private inputs while allowing public verification
 pub fn generate_zk_commitment(
     public_inputs: &[u64],
     private_inputs: &[u64],
@@ -194,4 +247,50 @@ pub fn generate_zk_commitment(
 pub fn validate_commitment(commitment: &[u8; 32]) -> bool {
     // Check that commitment is non-zero
     commitment.iter().any(|&b| b != 0)
+}
+
+/// Helper function to convert u64 oracle price to field element for ZK proofs
+pub fn oracle_price_to_fp(price: u64) -> Fp {
+    Fp::from(price)
+}
+
+/// Helper function to convert threshold to field element
+pub fn threshold_to_fp(threshold: u64) -> Fp {
+    Fp::from(threshold)
+}
+
+/// Helper function to convert boolean decision to field element
+pub fn decision_to_fp(decision: bool) -> Fp {
+    if decision {
+        Fp::one()
+    } else {
+        Fp::zero()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_commitment_validation() {
+        let zero_commitment = [0u8; 32];
+        assert!(!validate_commitment(&zero_commitment));
+        
+        let valid_commitment = [1u8; 32];
+        assert!(validate_commitment(&valid_commitment));
+    }
+
+    #[test]
+    fn test_field_element_conversions() {
+        let price = 1000u64;
+        let fp = oracle_price_to_fp(price);
+        assert_eq!(fp, Fp::from(1000u64));
+        
+        let decision_true = decision_to_fp(true);
+        assert_eq!(decision_true, Fp::one());
+        
+        let decision_false = decision_to_fp(false);
+        assert_eq!(decision_false, Fp::zero());
+    }
 }

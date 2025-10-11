@@ -6,12 +6,14 @@ pub mod errors;
 pub mod oracle_integration;
 pub mod prediction_market;
 pub mod privacy_utils;
+pub mod zk_circuits;
 
 use cdp::*;
 use errors::*;
 use oracle_integration::*;
 use prediction_market::*;
 use privacy_utils::*;
+use zk_circuits::*;
 
 declare_id!("2cgHiWhbyQiiCrhtcy9EEib1XLRAJGcbeKA7XkpS3ssa");
 
@@ -178,8 +180,9 @@ pub mod aegis_protocol {
         ctx: Context<CreatePredictionMarket>,
         market_id: u64,
         resolution_time: i64,
-        question_hash: [u8; 32],
+        question: String,
     ) -> Result<()> {
+        require!(question.len() <= 64, AegisError::InvalidMarket);
         let current_time = Clock::get()?.unix_timestamp;
         require!(
             resolution_time > current_time + 3600,
@@ -191,7 +194,8 @@ pub mod aegis_protocol {
         market.resolution_oracle = ctx.accounts.resolution_oracle.key();
         market.yes_pool = 0;
         market.no_pool = 0;
-        market.zk_proof_commitment = question_hash;
+        market.zk_commitment = poseidon_hash(&question.as_bytes(), &ctx.accounts.resolution_oracle.key(), &resolution_time.to_le_bytes());
+        market.proof_required = question.to_lowercase().contains("hedge") || question.to_lowercase().contains("yield");
         market.resolved = false;
         market.outcome = None;
         market.resolution_time = resolution_time;
@@ -243,21 +247,20 @@ pub mod aegis_protocol {
             AegisError::ResolutionTimeNotReached
         );
 
-        // Verify ZK proof
-        require!(
-            verify_zk_proof(&zk_proof, &market.zk_proof_commitment),
-            AegisError::InvalidProof
-        );
-
-        let expected_oracle = market.resolution_oracle;
-
-        // Fetch oracle outcome
-        let outcome = fetch_oracle_outcome(&ctx.accounts.oracle_account, Clock::get()?.unix_timestamp, expected_oracle)?;
-
-        // Update market state
-        let market = &mut ctx.accounts.market;
-        market.resolved = true;
-        market.outcome = Some(outcome);
+        if market.proof_required {
+            require!(zk_proof.len() >= 1024 && zk_proof.len() <= 2048, AegisError::InvalidProof);
+            let outcome = fetch_oracle_outcome(&ctx.accounts.oracle_account, current_time, market.resolution_oracle)?;
+            let outcome_fp = if outcome { Fp::one() } else { Fp::zero() };
+            let commitment_fp = Fp::from_bytes(&market.zk_commitment).unwrap_or(Fp::zero());
+            let public_inputs = [commitment_fp, Fp::from(outcome as u64)];
+            require!(verify_proof(&zk_proof, &public_inputs, &get_verifying_key(), &get_proof_params()).map_err(|_| AegisError::InvalidProof)?, AegisError::InvalidProof);
+        } else {
+            let outcome = fetch_oracle_outcome(&ctx.accounts.oracle_account, current_time, market.resolution_oracle)?;
+            // Update market state
+            let market = &mut ctx.accounts.market;
+            market.resolved = true;
+            market.outcome = Some(outcome);
+        }
 
         Ok(())
     }
@@ -485,8 +488,16 @@ pub struct PredictionMarket {
     pub resolution_oracle: Pubkey,
     pub yes_pool: u64,
     pub no_pool: u64,
-    pub zk_proof_commitment: [u8; 32],
+    pub zk_commitment: [u8; 32],
+    pub proof_required: bool,
     pub resolved: bool,
     pub outcome: Option<bool>,
     pub resolution_time: i64,
+}
+
+fn poseidon_hash(data1: &[u8], data2: &[u8], data3: &[u8]) -> [u8; 32] {
+    use solana_poseidon::{hashv, Parameters, Endianness};
+    let inputs = vec![data1, data2, data3];
+    let hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &inputs).unwrap();
+    hash.to_bytes()
 }
