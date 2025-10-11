@@ -11,11 +11,11 @@ pub mod zk_circuits;
 use cdp::*;
 use errors::*;
 use oracle_integration::*;
-use prediction_market::*;
 use privacy_utils::*;
-use zk_circuits::*;
+use zk_circuits::{verify_proof, get_verifying_key, get_proof_params, FieldElement as Fp};
+use halo2curves::group::ff::PrimeField;
 
-declare_id!("2cgHiWhbyQiiCrhtcy9EEib1XLRAJGcbeKA7XkpS3ssa");
+declare_id!("3AT5kUMBhHHFkc7Th21Hk3H6JGHLvA6MAJxUwUU7aDJW");
 
 #[program]
 pub mod aegis_protocol {
@@ -178,7 +178,7 @@ pub mod aegis_protocol {
 
     pub fn create_prediction_market(
         ctx: Context<CreatePredictionMarket>,
-        market_id: u64,
+        _market_id: u64,
         resolution_time: i64,
         question: String,
     ) -> Result<()> {
@@ -194,7 +194,11 @@ pub mod aegis_protocol {
         market.resolution_oracle = ctx.accounts.resolution_oracle.key();
         market.yes_pool = 0;
         market.no_pool = 0;
-        market.zk_commitment = poseidon_hash(&question.as_bytes(), &ctx.accounts.resolution_oracle.key(), &resolution_time.to_le_bytes());
+        market.zk_commitment = poseidon_hash(
+            question.as_bytes(),
+            ctx.accounts.resolution_oracle.key().as_ref(),
+            &resolution_time.to_le_bytes()
+        );
         market.proof_required = question.to_lowercase().contains("hedge") || question.to_lowercase().contains("yield");
         market.resolved = false;
         market.outcome = None;
@@ -238,7 +242,7 @@ pub mod aegis_protocol {
         _market_id: u64,
         zk_proof: Vec<u8>,
     ) -> Result<()> {
-        let market = &ctx.accounts.market;
+        let market = &mut ctx.accounts.market;
         require!(!market.resolved, AegisError::MarketResolved);
 
         let current_time = Clock::get()?.unix_timestamp;
@@ -247,20 +251,36 @@ pub mod aegis_protocol {
             AegisError::ResolutionTimeNotReached
         );
 
+        let outcome = fetch_oracle_outcome(&ctx.accounts.oracle_account, current_time, market.resolution_oracle)?;
+
         if market.proof_required {
             require!(zk_proof.len() >= 1024 && zk_proof.len() <= 2048, AegisError::InvalidProof);
-            let outcome = fetch_oracle_outcome(&ctx.accounts.oracle_account, current_time, market.resolution_oracle)?;
-            let outcome_fp = if outcome { Fp::one() } else { Fp::zero() };
-            let commitment_fp = Fp::from_bytes(&market.zk_commitment).unwrap_or(Fp::zero());
-            let public_inputs = [commitment_fp, Fp::from(outcome as u64)];
-            require!(verify_proof(&zk_proof, &public_inputs, &get_verifying_key(), &get_proof_params()).map_err(|_| AegisError::InvalidProof)?, AegisError::InvalidProof);
-        } else {
-            let outcome = fetch_oracle_outcome(&ctx.accounts.oracle_account, current_time, market.resolution_oracle)?;
-            // Update market state
-            let market = &mut ctx.accounts.market;
-            market.resolved = true;
-            market.outcome = Some(outcome);
+            
+            // Convert outcome to field element
+            let outcome_fp = if outcome { 
+                Fp::one() 
+            } else { 
+                Fp::zero() 
+            };
+            
+            // Convert commitment bytes to field element
+            let commitment_fp = bytes_to_fp(&market.zk_commitment);
+            
+            let public_inputs = vec![commitment_fp, outcome_fp];
+            
+            let is_valid = verify_proof(
+                &zk_proof,
+                &public_inputs,
+                &get_verifying_key(),
+                &get_proof_params()
+            ).map_err(|_| AegisError::InvalidProof)?;
+            
+            require!(is_valid, AegisError::InvalidProof);
         }
+
+        // Update market state
+        market.resolved = true;
+        market.outcome = Some(outcome);
 
         Ok(())
     }
@@ -275,7 +295,7 @@ pub mod aegis_protocol {
         require!(is_liquidatable, AegisError::NotLiquidatable);
 
         // Calculate liquidation bonus (5%)
-        let liquidation_bonus = position
+        let _liquidation_bonus = position
             .minted_aegis
             .checked_mul(5)
             .ok_or(AegisError::Overflow)?
@@ -495,9 +515,20 @@ pub struct PredictionMarket {
     pub resolution_time: i64,
 }
 
+/// Helper function to hash data using Poseidon
 fn poseidon_hash(data1: &[u8], data2: &[u8], data3: &[u8]) -> [u8; 32] {
     use solana_poseidon::{hashv, Parameters, Endianness};
     let inputs = vec![data1, data2, data3];
     let hash = hashv(Parameters::Bn254X5, Endianness::BigEndian, &inputs).unwrap();
     hash.to_bytes()
+}
+
+/// Helper function to convert bytes to field element
+fn bytes_to_fp(bytes: &[u8; 32]) -> Fp {
+    // Take first 31 bytes to ensure it's within the field modulus
+    let mut arr = [0u8; 32];
+    arr[..31].copy_from_slice(&bytes[..31]);
+    
+    // Use from_repr which returns CtOption
+    Fp::from_repr(arr).unwrap_or_else(|| Fp::zero())
 }

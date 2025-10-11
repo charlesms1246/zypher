@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-aegis_protocol = "2cgHiWhbyQiiCrhtcy9EEib1XLRAJGcbeKA7XkpS3ssa"
+aegis_protocol = "3AT5kUMBhHHFkc7Th21Hk3H6JGHLvA6MAJxUwUU7aDJW"
 
 [registry]
 url = "https://api.apr.dev"
