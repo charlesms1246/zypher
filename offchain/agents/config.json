@@ -1,0 +1,8 @@
+{
+  "oracle_endpoint": "https://hermes.pyth.network/v2/updates/price/latest",
+  "asset_ids": ["ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"],
+  "rpc_url": "https://api.devnet.solana.com",
+  "program_id": "3AT5kUMBhHHFkc7Th21Hk3H6JGHLvA6MAJxUwUU7aDJW",
+  "wallet_keypair_path": "~/.config/solana/id.json",
+  "poll_interval_seconds": 60
+}

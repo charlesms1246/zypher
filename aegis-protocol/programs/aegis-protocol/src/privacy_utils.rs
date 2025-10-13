@@ -28,8 +28,8 @@ pub fn compute_position_hash(
 /// Verifies a ZK proof for hedge validity using actual halo2 verifier
 /// Integrates with the HedgeValidityCircuit from zk_circuits.rs
 pub fn verify_hedge_validity_proof(proof: &[u8], _hedge_decision: bool) -> bool {
-    // Validate proof size (must be between 1024-2048 bytes as per specs)
-    if proof.is_empty() || proof.len() < 1024 || proof.len() > 2048 {
+    // Validate proof size (must be between 200-512 bytes to fit in Solana transaction)
+    if proof.is_empty() || proof.len() < 200 || proof.len() > 512 {
         return false;
     }
     
@@ -42,8 +42,8 @@ pub fn verify_hedge_validity_proof(proof: &[u8], _hedge_decision: bool) -> bool 
 /// Verifies a ZK proof for market settlement using actual halo2 verifier
 /// This validates that the settlement decision is correct based on oracle data
 pub fn verify_zk_proof(proof: &[u8], _commitment: &[u8; 32]) -> bool {
-    // Validate proof size
-    if proof.is_empty() || proof.len() < 1024 || proof.len() > 2048 {
+    // Validate proof size (must be between 200-512 bytes to fit in Solana transaction)
+    if proof.is_empty() || proof.len() < 200 || proof.len() > 512 {
         return false;
     }
     
