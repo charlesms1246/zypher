@@ -15,7 +15,7 @@ use privacy_utils::*;
 use zk_circuits::{verify_proof, get_verifying_key, get_proof_params, FieldElement as Fp};
 use halo2curves::group::ff::PrimeField;
 
-declare_id!("2cgHiWhbyQiiCrhtcy9EEib1XLRAJGcbeKA7XkpS3ssa");
+declare_id!("3AT5kUMBhHHFkc7Th21Hk3H6JGHLvA6MAJxUwUU7aDJW");
 
 #[program]
 pub mod aegis_protocol {
@@ -315,6 +315,16 @@ pub mod aegis_protocol {
     ) -> Result<()> {
         let position = &mut ctx.accounts.position;
         let current_time = Clock::get()?.unix_timestamp;
+        let config = &ctx.accounts.config;
+
+        // Initialize position if it's new
+        if position.owner == Pubkey::default() {
+            position.owner = ctx.accounts.agent.key();
+            position.collateral_amounts = vec![0u64; config.approved_collaterals.len()];
+            position.minted_aegis = 0;
+            position.encrypted_position_hash = [0u8; 32];
+            position.last_hedge_timestamp = 0;
+        }
 
         // Rate limiting: minimum 1 hour between hedges
         require!(
@@ -474,14 +484,18 @@ pub struct LiquidatePosition<'info> {
 #[derive(Accounts)]
 pub struct TriggerHedge<'info> {
     #[account(
-        mut,
-        seeds = [b"position", position.owner.as_ref()],
+        init_if_needed,
+        payer = agent,
+        space = 8 + 32 + 4 + (8 * 5) + 8 + 32 + 8,
+        seeds = [b"position", agent.key().as_ref()],
         bump
     )]
     pub position: Account<'info, UserPosition>,
     #[account(seeds = [b"config"], bump)]
     pub config: Account<'info, GlobalConfig>,
+    #[account(mut)]
     pub agent: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[account]

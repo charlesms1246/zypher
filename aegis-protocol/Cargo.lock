@@ -33,11 +33,13 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "base64 0.22.1",
  "borsh 1.5.7",
  "halo2_proofs",
  "halo2curves",
  "rand 0.8.5",
  "rand_core 0.6.4",
+ "serde_json",
  "solana-poseidon 3.0.6",
  "solana-program-test",
  "solana-sdk",
