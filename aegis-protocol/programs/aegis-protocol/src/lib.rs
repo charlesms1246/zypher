@@ -15,7 +15,7 @@ use privacy_utils::*;
 use zk_circuits::{verify_proof, get_verifying_key, get_proof_params, FieldElement as Fp};
 use halo2curves::group::ff::PrimeField;
 
-declare_id!("3AT5kUMBhHHFkc7Th21Hk3H6JGHLvA6MAJxUwUU7aDJW");
+declare_id!("AvVY3MVbas5ZQFEC7HNu4bf1BdrF4u2TxrBgovmnLQZm");
 
 #[program]
 pub mod aegis_protocol {
@@ -24,10 +24,19 @@ pub mod aegis_protocol {
     pub fn initialize_config(
         ctx: Context<InitializeConfig>,
         min_ratio: u64,
+        hedge_interval: u64,
         approved_collaterals: Vec<Pubkey>,
         oracle_accounts: Vec<Pubkey>,
     ) -> Result<()> {
         require_eq!(min_ratio, 150_000_000, AegisError::InvalidRatio);
+        
+        // Validate hedge interval bounds (300-86400 seconds)
+        let interval = if hedge_interval == 0 { 3600 } else { hedge_interval };
+        require!(
+            interval >= 300 && interval <= 86400,
+            AegisError::InvalidInterval
+        );
+        
         require!(
             !approved_collaterals.is_empty() && approved_collaterals.len() <= 5,
             AegisError::InvalidCollateralList
@@ -52,9 +61,27 @@ pub mod aegis_protocol {
         let config = &mut ctx.accounts.config;
         config.admin = ctx.accounts.admin.key();
         config.min_collateral_ratio = min_ratio;
+        config.hedge_interval_seconds = interval;
         config.approved_collaterals = approved_collaterals;
         config.oracle_accounts = oracle_accounts;
         config.aegis_mint = ctx.accounts.aegis_mint.key();
+
+        Ok(())
+    }
+
+    /// Update hedge interval at runtime (admin-only)
+    pub fn update_config(
+        ctx: Context<UpdateConfig>,
+        new_hedge_interval: u64,
+    ) -> Result<()> {
+        // Validate new hedge interval bounds (300-86400 seconds)
+        require!(
+            new_hedge_interval >= 300 && new_hedge_interval <= 86400,
+            AegisError::InvalidInterval
+        );
+
+        let config = &mut ctx.accounts.config;
+        config.hedge_interval_seconds = new_hedge_interval;
 
         Ok(())
     }
@@ -327,10 +354,10 @@ pub mod aegis_protocol {
             position.last_hedge_timestamp = 0;
         }
 
-        // Rate limiting: minimum 1 hour between hedges
+        // Rate limiting: check configurable hedge interval
         require!(
-            current_time - position.last_hedge_timestamp >= 3600,
-            AegisError::HedgeTooFrequent
+            current_time - position.last_hedge_timestamp >= config.hedge_interval_seconds as i64,
+            AegisError::HedgeCooldown
         );
 
         // Verify agent ZK proof
@@ -359,6 +386,60 @@ pub mod aegis_protocol {
 
         Ok(())
     }
+
+    /// Manual hedge override: allows position owner to trigger hedge without agent/ZK
+    /// Reduces minted_aegis by 10% and enforces same cooldown as agent hedges
+    pub fn manual_hedge_override(
+        ctx: Context<ManualHedgeOverride>,
+        decision: bool,
+    ) -> Result<()> {
+        let position = &mut ctx.accounts.position;
+        let config = &ctx.accounts.config;
+        let current_time = Clock::get()?.unix_timestamp;
+
+        // Verify position exists and has minted AEGIS
+        require!(
+            position.owner != Pubkey::default() && position.minted_aegis > 0,
+            AegisError::InvalidOperation
+        );
+
+        // Enforce same cooldown as agent hedges
+        require!(
+            current_time - position.last_hedge_timestamp >= config.hedge_interval_seconds as i64,
+            AegisError::HedgeCooldown
+        );
+
+        // Update timestamp regardless of decision (prevents spam)
+        position.last_hedge_timestamp = current_time;
+
+        if decision {
+            // Reduce minted_aegis by 10% using checked arithmetic
+            let reduction_amount = position.minted_aegis
+                .checked_mul(10)
+                .ok_or(AegisError::Overflow)?
+                .checked_div(100)
+                .ok_or(AegisError::Overflow)?;
+
+            position.minted_aegis = position.minted_aegis
+                .checked_sub(reduction_amount)
+                .ok_or(AegisError::InsufficientBalance)?;
+
+            // Update encrypted position hash after manual adjustment
+            // Concatenate all position data into single byte array
+            let mut data = Vec::new();
+            data.extend_from_slice(&position.collateral_amounts[0].to_le_bytes());
+            data.extend_from_slice(&position.minted_aegis.to_le_bytes());
+            data.extend_from_slice(&current_time.to_le_bytes());
+            
+            let new_hash = compute_poseidon_commitment(&data);
+            position.encrypted_position_hash = new_hash;
+
+            // TODO: Burn reduction_amount tokens via SPL CPI in production
+            // For MVP, we just reduce the accounting
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -366,7 +447,7 @@ pub struct InitializeConfig<'info> {
     #[account(
         init,
         payer = admin,
-        space = 8 + 32 + 8 + 4 + (32 * 5) + 4 + (32 * 5) + 32,
+        space = 8 + 32 + 8 + 8 + 4 + (32 * 5) + 4 + (32 * 5) + 32,
         seeds = [b"config"],
         bump
     )]
@@ -375,6 +456,18 @@ pub struct InitializeConfig<'info> {
     pub admin: Signer<'info>,
     pub aegis_mint: Account<'info, Mint>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateConfig<'info> {
+    #[account(
+        mut,
+        seeds = [b"config"],
+        bump,
+        constraint = config.admin == admin.key() @ AegisError::Unauthorized
+    )]
+    pub config: Account<'info, GlobalConfig>,
+    pub admin: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -512,10 +605,26 @@ pub struct TriggerHedge<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct ManualHedgeOverride<'info> {
+    #[account(
+        mut,
+        seeds = [b"position", owner.key().as_ref()],
+        bump,
+        constraint = position.owner == owner.key() @ AegisError::Unauthorized
+    )]
+    pub position: Account<'info, UserPosition>,
+    #[account(seeds = [b"config"], bump)]
+    pub config: Account<'info, GlobalConfig>,
+    #[account(mut)]
+    pub owner: Signer<'info>,
+}
+
 #[account]
 pub struct GlobalConfig {
     pub admin: Pubkey,
     pub min_collateral_ratio: u64,
+    pub hedge_interval_seconds: u64,
     pub approved_collaterals: Vec<Pubkey>,
     pub oracle_accounts: Vec<Pubkey>,
     pub aegis_mint: Pubkey,

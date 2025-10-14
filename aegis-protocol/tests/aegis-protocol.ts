@@ -120,12 +120,13 @@ describe("aegis-protocol", () => {
   describe("Initialize Config", () => {
     it("Initializes protocol configuration", async () => {
       const minRatio = new anchor.BN(150_000_000);
+      const hedgeInterval = new anchor.BN(3600); // 1 hour default
       const approvedCollaterals = [collateralMint];
       const oracleAccounts = [oracleAccount];
 
       try {
         await program.methods
-          .initializeConfig(minRatio, approvedCollaterals, oracleAccounts)
+          .initializeConfig(minRatio, hedgeInterval, approvedCollaterals, oracleAccounts)
           .accounts({
             config: configPda,
             admin: admin.publicKey,
@@ -139,6 +140,7 @@ describe("aegis-protocol", () => {
         
         assert.ok(config.admin.equals(admin.publicKey));
         assert.ok(config.minCollateralRatio.eq(minRatio));
+        assert.ok(config.hedgeIntervalSeconds.eq(hedgeInterval)); // NEW FIELD CHECK
         assert.equal(config.approvedCollaterals.length, 1);
         assert.ok(config.approvedCollaterals[0].equals(collateralMint));
       } catch (err) {
@@ -149,10 +151,11 @@ describe("aegis-protocol", () => {
 
     it("Fails with invalid collateral ratio", async () => {
       const invalidRatio = new anchor.BN(100_000_000); // Not 150%
+      const hedgeInterval = new anchor.BN(3600);
       
       try {
         await program.methods
-          .initializeConfig(invalidRatio, [collateralMint], [oracleAccount])
+          .initializeConfig(invalidRatio, hedgeInterval, [collateralMint], [oracleAccount])
           .accounts({
             config: Keypair.generate().publicKey,
             admin: admin.publicKey,
@@ -170,11 +173,13 @@ describe("aegis-protocol", () => {
 
     it("Fails with mismatched oracle list", async () => {
       const minRatio = new anchor.BN(150_000_000);
+      const hedgeInterval = new anchor.BN(3600);
       
       try {
         await program.methods
           .initializeConfig(
             minRatio,
+            hedgeInterval,
             [collateralMint],
             [] // Empty oracle list
           )

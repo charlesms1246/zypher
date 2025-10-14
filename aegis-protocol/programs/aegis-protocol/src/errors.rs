@@ -26,54 +26,63 @@ pub enum AegisError {
     #[msg("Invalid collateral ratio configuration")]
     InvalidRatio = 107,
     
+    #[msg("Hedge cooldown active: wait before next hedge")]
+    HedgeCooldown = 108,
+    
+    #[msg("Hedge interval out of bounds: must be 300-86400 seconds")]
+    InvalidInterval = 109,
+    
     #[msg("Invalid collateral list")]
-    InvalidCollateralList = 108,
+    InvalidCollateralList = 110,
     
     #[msg("Oracle accounts must match collateral list")]
-    OracleMismatch = 109,
+    OracleMismatch = 111,
     
     #[msg("Duplicate collateral in list")]
-    DuplicateCollateral = 110,
+    DuplicateCollateral = 112,
     
     #[msg("Invalid collateral index")]
-    InvalidCollateralIndex = 111,
+    InvalidCollateralIndex = 113,
     
     #[msg("Amount cannot be zero")]
-    ZeroAmount = 112,
+    ZeroAmount = 114,
     
     #[msg("Insufficient balance")]
-    InsufficientBalance = 113,
+    InsufficientBalance = 115,
+    
+    #[msg("No active position to hedge")]
+    InvalidOperation = 116,
     
     #[msg("Resolution time must be at least 1 hour in future")]
-    InvalidResolutionTime = 114,
+    InvalidResolutionTime = 117,
     
     #[msg("Resolution time not yet reached")]
-    ResolutionTimeNotReached = 115,
+    ResolutionTimeNotReached = 118,
     
     #[msg("Position not eligible for liquidation")]
-    NotLiquidatable = 116,
+    NotLiquidatable = 119,
     
     #[msg("Hedge triggered too frequently, wait at least 1 hour")]
-    HedgeTooFrequent = 117,
+    HedgeTooFrequent = 120,
     
     #[msg("Oracle price is stale")]
-    StaleOraclePrice = 118,
+    StaleOraclePrice = 121,
     
     #[msg("Oracle consensus not reached")]
-    OracleConsensusFailure = 119,
+    OracleConsensusFailure = 122,
     
     #[msg("Invalid market parameters")]
-    InvalidMarket = 120,
+    InvalidMarket = 123,
     
     #[msg("Invalid MPC parameters (n >= t, t > 0)")]
-    InvalidMPCParams = 121,
+    InvalidMPCParams = 124,
     
     #[msg("Too few shares for MPC reconstruction")]
-    TooFewShares = 122,
+    TooFewShares = 125,
     
     #[msg("Serialization error")]
-    SerializationError = 123,
+    SerializationError = 126,
     
     #[msg("Deserialization error")]
-    DeserializationError = 124,
+    DeserializationError = 127,
 }
