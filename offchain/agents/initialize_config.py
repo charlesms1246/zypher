@@ -28,7 +28,7 @@ def initialize_config():
         config = json.load(f)
     
     # Load keypair
-    keypair_path = config['wallet_keypair_path'].replace('~', '/home/aditya')
+    keypair_path = config['wallet_keypair_path'].replace('~', os.path.expanduser('~'))
     with open(keypair_path, 'r') as f:
         keypair_data = json.load(f)
         keypair = Keypair.from_bytes(bytes(keypair_data))
