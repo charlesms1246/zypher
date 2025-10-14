@@ -1,5 +1,5 @@
 """
-Script to initialize the global config account for the Aegis Protocol.
+Script to initialize the global config account for the Zypher Protocol.
 This needs to be run once before the agent can start hedging.
 """
 import json
@@ -60,7 +60,7 @@ def initialize_config():
     
     # Create a dummy mint pubkey (you should replace this with your actual AEGIS mint)
     # For now, we'll use the system program ID as a placeholder
-    aegis_mint = Pubkey.from_string("So11111111111111111111111111111111111111112")  # Wrapped SOL mint
+    zypher_mint = Pubkey.from_string("So11111111111111111111111111111111111111112")  # Wrapped SOL mint
     
     # Approved collaterals (example: SOL)
     approved_collaterals = [
@@ -98,13 +98,13 @@ def initialize_config():
     # pub struct InitializeConfig<'info> {
     #     pub config: Account<'info, GlobalConfig>,  // init
     #     pub admin: Signer<'info>,  // mut
-    #     pub aegis_mint: Account<'info, Mint>,
+    #     pub zypher_mint: Account<'info, Mint>,
     #     pub system_program: Program<'info, System>,
     # }
     accounts = [
         AccountMeta(pubkey=config_pda, is_signer=False, is_writable=True),
         AccountMeta(pubkey=admin_pubkey, is_signer=True, is_writable=True),
-        AccountMeta(pubkey=aegis_mint, is_signer=False, is_writable=False),
+        AccountMeta(pubkey=zypher_mint, is_signer=False, is_writable=False),
         AccountMeta(pubkey=SYS_PROGRAM_ID, is_signer=False, is_writable=False),
     ]
     

@@ -1,0 +1,43 @@
+[package]
+name = "zypher"
+version = "0.1.0"
+description = "Privacy-preserving CDP system with ZK prediction markets"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "zypher"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+
+[dependencies]
+anchor-lang = { version = "0.32.1", features = ["init-if-needed"] }
+anchor-spl = "0.32.1"
+solana-poseidon = "3.0.6"
+
+# Use halo2 versions compatible with Rust 2021
+halo2_proofs = "=0.2.0"
+halo2curves = "=0.4.0"
+
+# Explicitly pin borsh version for compatibility
+borsh = "1.5.1"
+rand = "0.8"
+rand_core = "0.6"
+serde_json = "1.0.145"
+base64 = "0.22.1"
+
+[dev-dependencies]
+solana-program-test = "2.1.0"
+solana-sdk = "2.1.0"
+spl-token = "6.0.0"
+
+# Prevent cargo from pulling in edition 2024 dependencies
+[patch.crates-io]
+base64ct = { version = "=1.6.0" }
