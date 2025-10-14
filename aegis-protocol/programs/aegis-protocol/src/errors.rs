@@ -64,4 +64,16 @@ pub enum AegisError {
     
     #[msg("Invalid market parameters")]
     InvalidMarket = 120,
+    
+    #[msg("Invalid MPC parameters (n >= t, t > 0)")]
+    InvalidMPCParams = 121,
+    
+    #[msg("Too few shares for MPC reconstruction")]
+    TooFewShares = 122,
+    
+    #[msg("Serialization error")]
+    SerializationError = 123,
+    
+    #[msg("Deserialization error")]
+    DeserializationError = 124,
 }

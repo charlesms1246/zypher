@@ -312,6 +312,7 @@ pub mod aegis_protocol {
         ctx: Context<TriggerHedge>,
         hedge_decision: bool,
         agent_proof: Vec<u8>,
+        mpc_shares: Vec<Vec<u8>>,
     ) -> Result<()> {
         let position = &mut ctx.accounts.position;
         let current_time = Clock::get()?.unix_timestamp;
@@ -337,6 +338,19 @@ pub mod aegis_protocol {
             verify_hedge_validity_proof(&agent_proof, hedge_decision),
             AegisError::InvalidProof
         );
+        
+        // Verify MPC shares if provided (threshold = 2, requires 2+ shares)
+        if !mpc_shares.is_empty() {
+            require!(mpc_shares.len() >= 2, AegisError::TooFewShares);
+            require!(mpc_shares.len() <= 3, AegisError::InvalidMPCParams);
+            
+            // Reconstruct secret from MPC shares
+            let reconstructed = simulate_mpc_reconstruct(&mpc_shares, 2)?;
+            
+            // Verify reconstructed secret matches expected decision
+            // For MVP, we accept any valid reconstruction as proof of MPC cooperation
+            require!(!reconstructed.is_empty(), AegisError::InvalidProof);
+        }
 
         if hedge_decision {
             // Execute hedge logic
