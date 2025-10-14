@@ -12,6 +12,7 @@ from solders.message import Message
 from solders.instruction import Instruction, AccountMeta
 from solders.pubkey import Pubkey
 from solders.system_program import ID as SYS_PROGRAM_ID
+import os
 
 
 def compute_anchor_discriminator(namespace, name):
