@@ -28,25 +28,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "zypher"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "base64 0.22.1",
- "borsh 1.5.7",
- "halo2_proofs",
- "halo2curves",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "serde_json",
- "solana-poseidon 3.0.6",
- "solana-program-test",
- "solana-sdk",
- "spl-token 6.0.0",
-]
-
-[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9173,4 +9154,23 @@ checksum = "91e19ebc2adc8f83e43039e79776e3fda8ca919132d68a1fed6a5faca2683748"
 dependencies = [
  "cc",
  "pkg-config",
+]
+
+[[package]]
+name = "zypher"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "base64 0.22.1",
+ "borsh 1.5.7",
+ "halo2_proofs",
+ "halo2curves",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "serde_json",
+ "solana-poseidon 3.0.6",
+ "solana-program-test",
+ "solana-sdk",
+ "spl-token 6.0.0",
 ]

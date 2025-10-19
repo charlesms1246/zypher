@@ -1,7 +1,6 @@
-
-
-
-
+use anchor_lang::prelude::*;
+use solana_poseidon::{hashv, Endianness, Parameters};
+use halo2curves::pasta::Fp;
 
 /// Computes a privacy-preserving hash of user position using Poseidon-like construction
 /// For production, this should use actual Poseidon hashing with proper field elements
