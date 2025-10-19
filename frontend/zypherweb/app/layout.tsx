@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Orbitron } from "next/font/google";
 import "./globals.css";
+import WalletContextProvider from "@/components/WalletContextProvider";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-display",
@@ -15,11 +16,11 @@ const orbitron = Orbitron({
 });
 
 export const metadata: Metadata = {
-  title: "Zypher Protocol | Privacy-Preserving Stablecoins on Solana",
+  title: "Zypher | Privacy-Preserving Stablecoins on Solana",
   description: "AI-agent-driven, privacy-focused protocol for encrypted stablecoins backed by real-world assets. Silent Proofs. Loud Impact.",
   keywords: ["Solana", "stablecoin", "DeFi", "zero-knowledge", "AI", "privacy", "RWA"],
   openGraph: {
-    title: "Zypher Protocol",
+    title: "Zypher",
     description: "Privacy-preserving stablecoins powered by AI agents and zero-knowledge proofs",
     type: "website",
   },
@@ -35,7 +36,9 @@ export default function RootLayout({
       <body
         className={`${spaceGrotesk.variable} ${orbitron.variable} antialiased bg-[#050505] text-[#F5F5F5]`}
       >
-        {children}
+        <WalletContextProvider>
+          {children}
+        </WalletContextProvider>
       </body>
     </html>
   );
