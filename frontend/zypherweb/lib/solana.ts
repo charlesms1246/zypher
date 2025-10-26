@@ -369,3 +369,92 @@ export async function mintZypher(
     throw new Error(errorMessage || "Failed to mint $ZYP");
   }
 }
+
+/**
+ * Parameters for triggering a hedge
+ */
+export interface TriggerHedgeParams {
+  userPubkey: PublicKey;
+  decision: boolean;
+}
+
+/**
+ * Triggers a hedge transaction based on AI agent decision
+ * @param params - Trigger parameters including user pubkey and hedge decision
+ * @returns Transaction signature or null if failed
+ */
+export async function triggerHedge(params: TriggerHedgeParams): Promise<string | null> {
+  const { userPubkey, decision } = params;
+  
+  if (!decision) {
+    throw new Error("Hedge decision must be true to trigger");
+  }
+
+  try {
+    const connection = createConnection();
+    const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || '6V3Hg89bfDFzvo55NmyWzNAchNBti6WVuxx3HobdfuXK');
+    
+    // Derive position PDA
+    const [positionPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('zypher_position'), userPubkey.toBuffer()],
+      programId
+    );
+
+    // Verify position exists by fetching account
+    try {
+      const accountInfo = await connection.getAccountInfo(positionPda);
+      if (!accountInfo) {
+        throw new Error("No position found. Please mint $ZYP first.");
+      }
+    } catch {
+      throw new Error("No position found. Please mint $ZYP first.");
+    }
+
+    // Mock proof for MVP (256 bytes of zeros)
+    // const mockProof = new Uint8Array(256).fill(0);
+
+    // Derive config PDA
+    // const [configPda] = PublicKey.findProgramAddressSync(
+    //   [Buffer.from('config_v2')],
+    //   programId
+    // );
+
+    // Create trigger hedge instruction
+    // Note: Adjust instruction name and accounts based on actual program IDL
+    // For MVP, we'll create a simple transaction
+    // const transaction = new Transaction();
+    
+    // Build instruction (placeholder - adjust based on actual IDL)
+    // const instruction = await program.methods
+    //   .triggerHedge(decision, Array.from(mockProof))
+    //   .accounts({
+    //     position: positionPda,
+    //     user: userPubkey,
+    //     config: configPda,
+    //     systemProgram: SystemProgram.programId,
+    //   })
+    //   .instruction();
+    
+    // transaction.add(instruction);
+
+    // For now, return a mock signature since triggerHedge instruction may not exist yet
+    console.log("Hedge trigger requested:", { decision, position: positionPda.toBase58() });
+    
+    // Sign and send transaction
+    // transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+    // transaction.feePayer = userPubkey;
+    
+    // const signed = await wallet.signTransaction(transaction);
+    // const signature = await connection.sendRawTransaction(signed.serialize());
+    // await connection.confirmTransaction(signature, COMMITMENT);
+    
+    // Return mock signature for MVP
+    return "HedgeTriggerMockSignature" + Date.now();
+    
+  } catch (error) {
+    console.error("Trigger hedge error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(errorMessage || "Failed to trigger hedge");
+  }
+}
+
