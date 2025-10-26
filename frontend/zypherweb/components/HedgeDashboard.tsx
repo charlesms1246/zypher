@@ -31,81 +31,25 @@ export default function HedgeDashboard({ publicKey }: HedgeDashboardProps) {
 
   /**
    * Polls oracles and program for dashboard data
-   * Fetches: hedge decision from oracle volatility, position stats from program, predictions
+   * Fetches: hedge decision from AI agent API, position stats from program, predictions from on-chain
    */
   const fetchData = async () => {
     try {
-      // Oracle Poll - Fetch Pyth prices for volatility calculation
-      // These are the actual Pyth Price Feed IDs (not Solana account addresses)
-      const pythPriceFeedIds = [
-        '0x765d2ba906dbc32ca17cc11f5310a89e9ee1f6420508c63861f2f8ba4ee34bb2', // Gold/USD
-        '0xf2fb02c32b055c805e7238d628e5e9dadef274376114eb1f012337cabe93871e', // Silver/USD  
-        '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43', // BTC/USD
-        '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace', // ETH/USD
-        '0x2f95862b045670cd22bee3114c39763a4a08beeb663b145d283c31d7d1101c4f', // BNB/USD
-      ];
-
-      // Fetch historical prices for volatility (stored in localStorage)
-      const priceHistoryKey = 'zypher_price_history';
-      const storedHistory = localStorage.getItem(priceHistoryKey);
-      const priceHistory: Record<string, number[]> = storedHistory ? JSON.parse(storedHistory) : {};
-
-      // Fetch current prices from Pyth
-      const pricePromises = pythPriceFeedIds.map(async (feedId) => {
-        try {
-          const response = await fetch(`https://hermes.pyth.network/v2/updates/price/latest?ids[]=${feedId}`);
-          if (!response.ok) {
-            console.error(`Failed to fetch price for ${feedId}: HTTP ${response.status}`);
-            return null;
-          }
-          const data = await response.json();
-          const priceData = data.parsed?.[0]?.price;
-          if (priceData) {
-            const price = parseFloat(priceData.price) * Math.pow(10, priceData.expo);
-            
-            // Update history (keep last 5 prices)
-            if (!priceHistory[feedId]) priceHistory[feedId] = [];
-            priceHistory[feedId].push(price);
-            if (priceHistory[feedId].length > 5) priceHistory[feedId].shift();
-            
-            return { id: feedId, price, history: priceHistory[feedId] };
-          }
-        } catch (err) {
-          console.error(`Failed to fetch price for ${feedId}:`, err);
+      // Fetch AI Agent Decision from API endpoint
+      try {
+        const agentResponse = await fetch('/api/agent');
+        if (agentResponse.ok) {
+          const agentData = await agentResponse.json();
+          setHedgeDecision(agentData.hedgeDecision);
+          console.log('Agent decision:', agentData);
+        } else {
+          console.error('Agent API failed, using local fallback');
+          setHedgeDecision(false); // Default to no hedge
         }
-        return null;
-      });
-
-      const prices = (await Promise.all(pricePromises)).filter(p => p !== null);
-      
-      // Save updated history
-      localStorage.setItem(priceHistoryKey, JSON.stringify(priceHistory));
-
-      // Calculate volatility (standard deviation) and hedge decision
-      let totalVolatility = 0;
-      let volatilityCount = 0;
-
-      prices.forEach((priceData) => {
-        if (priceData && priceData.history.length >= 2) {
-          const mean = priceData.history.reduce((sum, p) => sum + p, 0) / priceData.history.length;
-          const variance = priceData.history.reduce((sum, p) => sum + Math.pow(p - mean, 2), 0) / priceData.history.length;
-          const stdDev = Math.sqrt(variance);
-          const volatility = stdDev / mean; // Normalized volatility
-          totalVolatility += volatility;
-          volatilityCount++;
-        }
-      });
-
-      const avgVolatility = volatilityCount > 0 ? totalVolatility / volatilityCount : 0;
-      
-      // Sigmoid decision: x = (volatility * 0.7) + (threshold_factor * 0.3)
-      const threshold = 1.05; // 5% threshold proxy
-      const currentPrice = prices[0]?.price || 1;
-      const thresholdFactor = (threshold - currentPrice / currentPrice) / threshold;
-      const x = (avgVolatility * 0.7) + (thresholdFactor * 0.3);
-      const decision = 1 / (1 + Math.exp(-x)) > 0.5;
-      
-      setHedgeDecision(decision);
+      } catch (err) {
+        console.error('Agent API error:', err);
+        setHedgeDecision(false); // Default to no hedge
+      }
 
       // Position Fetch - Get user's position from program
       try {
@@ -125,8 +69,8 @@ export default function HedgeDashboard({ publicKey }: HedgeDashboardProps) {
           
           if (mintedZyp > 0) {
             // User has minted ZYP! Show their position
-            // Calculate collateral value from oracle prices (estimate)
-            const collateralValue = prices.length > 0 ? mintedZyp * prices[0].price * 0.67 : mintedZyp * 2000 * 0.67;
+            // Estimate collateral value (using $2000 average price for MVP)
+            const collateralValue = mintedZyp * 2000 * 0.67; // 150% collateral ratio
             
             setPositionStats({ mintedZyp, collateralValue });
           } else {
@@ -143,12 +87,133 @@ export default function HedgeDashboard({ publicKey }: HedgeDashboardProps) {
         setPositionStats(null);
       }
 
-      // Predictions Fetch - Mock for MVP
-      setPredictions([
-        { id: 1, question: 'Yield drop >5%?', outcome: null, resolved: false },
-        { id: 2, question: 'BTC volatility spike?', outcome: true, resolved: true },
-        { id: 3, question: 'Collateral ratio safe?', outcome: null, resolved: false },
-      ]);
+      // Predictions Fetch - Query prediction markets from program
+      try {
+        const { Connection, PublicKey: SolPublicKey } = await import('@solana/web3.js');
+        const connection = new Connection(process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
+        const programId = new SolPublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || '6V3Hg89bfDFzvo55NmyWzNAchNBti6WVuxx3HobdfuXK');
+        
+        console.log('Fetching prediction markets for program:', programId.toBase58());
+        
+        // Fetch ALL accounts owned by our program
+        const accounts = await connection.getProgramAccounts(programId, {
+          encoding: 'base64',
+        });
+        
+        console.log(`Found ${accounts.length} total program accounts`);
+        
+        // For each account, log its size and first 8 bytes (discriminator) to debug
+        const knownDiscriminators = {
+          '95089ccaa0fcb0d9': 'Position',
+          '184662bf3a907b9e': 'GlobalConfig',
+          'fbf8d1f553ea111b': 'Unknown',
+        };
+        
+        accounts.forEach((account, idx) => {
+          const data = Buffer.from(account.account.data as any, 'base64');
+          const discriminator = data.slice(0, 8).toString('hex');
+          const accountType = knownDiscriminators[discriminator as keyof typeof knownDiscriminators] || 'Unknown';
+          console.log(`Account ${idx}: ${account.pubkey.toBase58().slice(0, 8)}..., size: ${data.length}, type: ${accountType}, discriminator: ${discriminator}`);
+        });
+        
+        // Filter for prediction market accounts by checking discriminator
+        // PredictionMarket discriminator would be SHA256("account:PredictionMarket")[0..8]
+        // Since we know the discriminators for Position and GlobalConfig, exclude those
+        const predictionMarkets = accounts.filter(account => {
+          const data = Buffer.from(account.account.data as any, 'base64');
+          if (data.length < 8) return false;
+          
+          const discriminator = data.slice(0, 8).toString('hex');
+          // Exclude known account types
+          return !['95089ccaa0fcb0d9', '184662bf3a907b9e', 'fbf8d1f553ea111b'].includes(discriminator);
+        });
+        
+        console.log(`Found ${predictionMarkets.length} prediction market accounts`);
+        
+        if (predictionMarkets.length > 0) {
+          // Parse real prediction market data
+          const parsedPredictions = predictionMarkets.slice(0, 5).map((account, index) => {
+            try {
+              const data = Buffer.from(account.account.data as any, 'base64');
+              let offset = 8; // Skip discriminator
+              
+              // Read description (String)
+              const descLength = data.readUInt32LE(offset);
+              offset += 4;
+              
+              // Validate length before reading
+              if (descLength > 1000 || offset + descLength > data.length) {
+                throw new Error('Invalid description length');
+              }
+              
+              const description = data.slice(offset, offset + descLength).toString('utf8');
+              offset += descLength;
+              
+              // Skip creator and oracle pubkeys
+              offset += 64;
+              
+              // Read outcome_yes and outcome_no
+              const outcomeYes = Number(data.readBigUInt64LE(offset));
+              offset += 8;
+              const outcomeNo = Number(data.readBigUInt64LE(offset));
+              offset += 8;
+              
+              // Skip total_staked
+              offset += 8;
+              
+              // Read resolved flag
+              const resolved = data.readUInt8(offset) !== 0;
+              offset += 1;
+              
+              // Read winning_outcome (Option<bool>)
+              const hasOutcome = data.readUInt8(offset) !== 0;
+              offset += 1;
+              let winningOutcome = null;
+              if (hasOutcome) {
+                winningOutcome = data.readUInt8(offset) !== 0;
+              }
+              
+              return {
+                id: index + 1,
+                question: description,
+                outcome: resolved ? winningOutcome : null,
+                resolved,
+              };
+            } catch (err) {
+              console.error('Failed to parse prediction market:', err);
+              return null;
+            }
+          }).filter(p => p !== null) as { id: number; question: string; outcome: boolean | null; resolved: boolean }[];
+          
+          if (parsedPredictions.length > 0) {
+            setPredictions(parsedPredictions);
+          } else {
+            // Parsing failed, show demo
+            console.log('No valid prediction markets, showing demo data');
+            setPredictions([
+              { id: 1, question: 'BTC >$70k by Dec 2025?', outcome: null, resolved: false },
+              { id: 2, question: 'Gold volatility <10%?', outcome: true, resolved: true },
+              { id: 3, question: 'SOL staking yield >6%?', outcome: null, resolved: false },
+            ]);
+          }
+        } else {
+          // No markets found - show demo markets for MVP
+          console.log('No prediction markets created yet, showing demo data');
+          setPredictions([
+            { id: 1, question: 'BTC >$70k by Dec 2025?', outcome: null, resolved: false },
+            { id: 2, question: 'Gold volatility <10%?', outcome: true, resolved: true },
+            { id: 3, question: 'SOL staking yield >6%?', outcome: null, resolved: false },
+          ]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch predictions:', err);
+        // Fallback to demo markets
+        setPredictions([
+          { id: 1, question: 'BTC >$70k by Dec 2025?', outcome: null, resolved: false },
+          { id: 2, question: 'Gold volatility <10%?', outcome: true, resolved: true },
+          { id: 3, question: 'SOL staking yield >6%?', outcome: null, resolved: false },
+        ]);
+      }
 
       setLastUpdate(new Date());
       setIsLoading(false);
