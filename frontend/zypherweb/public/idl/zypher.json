@@ -1,0 +1,1055 @@
+{
+  "address": "6V3Hg89bfDFzvo55NmyWzNAchNBti6WVuxx3HobdfuXK",
+  "metadata": {
+    "name": "zypher",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Privacy-preserving CDP system with ZK prediction markets"
+  },
+  "instructions": [
+    {
+      "name": "bet_on_market",
+      "discriminator": [
+        75,
+        237,
+        201,
+        162,
+        29,
+        172,
+        165,
+        32
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "market_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user_zypher_token",
+          "writable": true
+        },
+        {
+          "name": "pool_vault",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "_market_id",
+          "type": "u64"
+        },
+        {
+          "name": "side",
+          "type": "bool"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "burn_zypher",
+      "discriminator": [
+        136,
+        94,
+        61,
+        247,
+        26,
+        7,
+        218,
+        92
+      ],
+      "accounts": [
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "writable": true,
+          "relations": [
+            "position"
+          ]
+        },
+        {
+          "name": "user_zypher_token",
+          "writable": true
+        },
+        {
+          "name": "zypher_mint",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "burn_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "create_prediction_market",
+      "discriminator": [
+        36,
+        13,
+        74,
+        193,
+        232,
+        127,
+        45,
+        31
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "market_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "resolution_oracle"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "_market_id",
+          "type": "u64"
+        },
+        {
+          "name": "resolution_time",
+          "type": "i64"
+        },
+        {
+          "name": "question",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "initialize_config",
+      "discriminator": [
+        208,
+        127,
+        21,
+        1,
+        194,
+        190,
+        196,
+        70
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "zypher_mint"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "min_ratio",
+          "type": "u64"
+        },
+        {
+          "name": "hedge_interval",
+          "type": "u64"
+        },
+        {
+          "name": "approved_collaterals",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "oracle_accounts",
+          "type": {
+            "vec": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "liquidate_position",
+      "discriminator": [
+        187,
+        74,
+        229,
+        149,
+        102,
+        81,
+        221,
+        68
+      ],
+      "accounts": [
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "position.owner",
+                "account": "UserPosition"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "liquidator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "manual_hedge_override",
+      "docs": [
+        "Manual hedge override: allows position owner to trigger hedge without agent/ZK",
+        "Reduces minted_zypher by 10% and enforces same cooldown as agent hedges"
+      ],
+      "discriminator": [
+        223,
+        15,
+        99,
+        97,
+        90,
+        86,
+        113,
+        193
+      ],
+      "accounts": [
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "decision",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "mint_zypher",
+      "discriminator": [
+        22,
+        29,
+        7,
+        78,
+        37,
+        221,
+        32,
+        147
+      ],
+      "accounts": [
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "user_collateral_token",
+          "writable": true
+        },
+        {
+          "name": "collateral_mint"
+        },
+        {
+          "name": "vault_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "collateral_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "zypher_mint",
+          "writable": true
+        },
+        {
+          "name": "user_zypher_token",
+          "writable": true
+        },
+        {
+          "name": "oracle_account"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "collateral_index",
+          "type": "u8"
+        },
+        {
+          "name": "deposit_amount",
+          "type": "u64"
+        },
+        {
+          "name": "mint_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "settle_market",
+      "discriminator": [
+        193,
+        153,
+        95,
+        216,
+        166,
+        6,
+        144,
+        217
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "market_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_account"
+        }
+      ],
+      "args": [
+        {
+          "name": "_market_id",
+          "type": "u64"
+        },
+        {
+          "name": "zk_proof",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "trigger_hedge",
+      "discriminator": [
+        29,
+        231,
+        249,
+        104,
+        191,
+        45,
+        51,
+        198
+      ],
+      "accounts": [
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "hedge_decision",
+          "type": "bool"
+        },
+        {
+          "name": "agent_proof",
+          "type": "bytes"
+        },
+        {
+          "name": "mpc_shares",
+          "type": {
+            "vec": "bytes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_config",
+      "docs": [
+        "Update hedge interval at runtime (admin-only)"
+      ],
+      "discriminator": [
+        29,
+        158,
+        252,
+        191,
+        10,
+        83,
+        219,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_hedge_interval",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GlobalConfig",
+      "discriminator": [
+        149,
+        8,
+        156,
+        202,
+        160,
+        252,
+        176,
+        217
+      ]
+    },
+    {
+      "name": "PredictionMarket",
+      "discriminator": [
+        117,
+        150,
+        97,
+        152,
+        119,
+        58,
+        51,
+        58
+      ]
+    },
+    {
+      "name": "UserPosition",
+      "discriminator": [
+        251,
+        248,
+        209,
+        245,
+        83,
+        234,
+        17,
+        27
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6100,
+      "name": "UnderCollateralized",
+      "msg": "Collateral ratio below minimum"
+    },
+    {
+      "code": 6101,
+      "name": "InvalidOracle",
+      "msg": "Stale or mismatched oracle data"
+    },
+    {
+      "code": 6102,
+      "name": "MarketResolved",
+      "msg": "Market already settled"
+    },
+    {
+      "code": 6103,
+      "name": "InvalidProof",
+      "msg": "ZK proof verification failed"
+    },
+    {
+      "code": 6104,
+      "name": "Unauthorized",
+      "msg": "Signer not authorized"
+    },
+    {
+      "code": 6105,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6106,
+      "name": "EncryptionMismatch",
+      "msg": "Hash does not match encrypted data"
+    },
+    {
+      "code": 6107,
+      "name": "InvalidRatio",
+      "msg": "Invalid collateral ratio configuration"
+    },
+    {
+      "code": 6108,
+      "name": "HedgeCooldown",
+      "msg": "Hedge cooldown active: wait before next hedge"
+    },
+    {
+      "code": 6109,
+      "name": "InvalidInterval",
+      "msg": "Hedge interval out of bounds: must be 300-86400 seconds"
+    },
+    {
+      "code": 6110,
+      "name": "InvalidCollateralList",
+      "msg": "Invalid collateral list"
+    },
+    {
+      "code": 6111,
+      "name": "OracleMismatch",
+      "msg": "Oracle accounts must match collateral list"
+    },
+    {
+      "code": 6112,
+      "name": "DuplicateCollateral",
+      "msg": "Duplicate collateral in list"
+    },
+    {
+      "code": 6113,
+      "name": "InvalidCollateralIndex",
+      "msg": "Invalid collateral index"
+    },
+    {
+      "code": 6114,
+      "name": "ZeroAmount",
+      "msg": "Amount cannot be zero"
+    },
+    {
+      "code": 6115,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance"
+    },
+    {
+      "code": 6116,
+      "name": "InvalidOperation",
+      "msg": "No active position to hedge"
+    },
+    {
+      "code": 6117,
+      "name": "InvalidResolutionTime",
+      "msg": "Resolution time must be at least 1 hour in future"
+    },
+    {
+      "code": 6118,
+      "name": "ResolutionTimeNotReached",
+      "msg": "Resolution time not yet reached"
+    },
+    {
+      "code": 6119,
+      "name": "NotLiquidatable",
+      "msg": "Position not eligible for liquidation"
+    },
+    {
+      "code": 6120,
+      "name": "HedgeTooFrequent",
+      "msg": "Hedge triggered too frequently, wait at least 1 hour"
+    },
+    {
+      "code": 6121,
+      "name": "StaleOraclePrice",
+      "msg": "Oracle price is stale"
+    },
+    {
+      "code": 6122,
+      "name": "OracleConsensusFailure",
+      "msg": "Oracle consensus not reached"
+    },
+    {
+      "code": 6123,
+      "name": "InvalidMarket",
+      "msg": "Invalid market parameters"
+    },
+    {
+      "code": 6124,
+      "name": "InvalidMPCParams",
+      "msg": "Invalid MPC parameters (n >= t, t > 0)"
+    },
+    {
+      "code": 6125,
+      "name": "TooFewShares",
+      "msg": "Too few shares for MPC reconstruction"
+    },
+    {
+      "code": 6126,
+      "name": "SerializationError",
+      "msg": "Serialization error"
+    },
+    {
+      "code": 6127,
+      "name": "DeserializationError",
+      "msg": "Deserialization error"
+    }
+  ],
+  "types": [
+    {
+      "name": "GlobalConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "min_collateral_ratio",
+            "type": "u64"
+          },
+          {
+            "name": "hedge_interval_seconds",
+            "type": "u64"
+          },
+          {
+            "name": "approved_collaterals",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "oracle_accounts",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "zypher_mint",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PredictionMarket",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "resolution_oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "yes_pool",
+            "type": "u64"
+          },
+          {
+            "name": "no_pool",
+            "type": "u64"
+          },
+          {
+            "name": "zk_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "proof_required",
+            "type": "bool"
+          },
+          {
+            "name": "resolved",
+            "type": "bool"
+          },
+          {
+            "name": "outcome",
+            "type": {
+              "option": "bool"
+            }
+          },
+          {
+            "name": "resolution_time",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserPosition",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "collateral_amounts",
+            "type": {
+              "vec": "u64"
+            }
+          },
+          {
+            "name": "minted_zypher",
+            "type": "u64"
+          },
+          {
+            "name": "encrypted_position_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "last_hedge_timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}

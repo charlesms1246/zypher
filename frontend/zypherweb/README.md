@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Zypher Protocol Web Frontend
 
-## Getting Started
+Privacy-preserving stablecoin dApp on Solana with AI-powered hedging and prediction markets.
 
-First, run the development server:
+## 🚀 Quick Start
+
+**First time setup?** See [SETUP.md](./SETUP.md) for complete initialization instructions.
+
+### Development
 
 ```bash
+# Install dependencies
+npm install
+
+# Run dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Requirements
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Node.js 18+
+- Phantom wallet browser extension
+- Solana CLI (for initialization)
+- SOL on devnet (for testing)
 
-## Learn More
+## 📱 Features
 
-To learn more about Next.js, take a look at the following resources:
+- **Wallet Integration**: Seamless Phantom wallet connection on Solana devnet
+- **Mint $ZYP**: Deposit collateral to mint Zypher stablecoin
+- **3D Previews**: Interactive 3D visualizations of Real-World Assets (RWAs)
+- **Oracle Integration**: Real-time price feeds from Pyth Network
+- **Privacy-First**: Encrypted CDP positions (coming soon)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🏗️ Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Framework**: Next.js 15.5 (App Router)
+- **Blockchain**: Solana (devnet), @solana/web3.js, Anchor
+- **Wallet**: @solana/wallet-adapter-react (Phantom)
+- **3D**: Three.js, @react-three/fiber, @react-three/drei
+- **Styling**: Tailwind CSS
+- **Oracles**: Pyth Network
 
-## Deploy on Vercel
+## 📦 Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+zypherweb/
+├── app/
+│   ├── page.tsx          # Landing page
+│   ├── wallet/page.tsx   # Wallet connection
+│   ├── mint/page.tsx     # Mint interface
+│   └── dashboard/page.tsx # User dashboard
+├── components/
+│   ├── WalletConnect.tsx     # Wallet button
+│   ├── MintForm.tsx          # Mint logic
+│   ├── ThreeDPreview.tsx     # 3D RWA viewer
+│   └── ...
+├── lib/
+│   └── solana.ts         # Anchor program calls
+├── public/
+│   ├── idl/zypher.json   # Program IDL
+│   └── models/           # 3D GLTF models
+├── scripts/
+│   └── initialize-config.ts  # Setup script
+└── .env.local            # Environment variables
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔧 Configuration
+
+Required environment variables in `.env.local`:
+
+```bash
+NEXT_PUBLIC_PROGRAM_ID=<your_program_id>
+NEXT_PUBLIC_ZYPHER_MINT=<zypher_mint_address>
+NEXT_PUBLIC_COLLATERAL_MINT=<collateral_token_address>
+NEXT_PUBLIC_ORACLE_ACCOUNT=<pyth_oracle_address>
+```
+
+Run `npx ts-node scripts/initialize-config.ts` to generate these values.
+
+## 🧪 Testing
+
+1. **Connect Wallet**: Navigate to `/wallet` and connect Phantom (ensure it's on devnet)
+2. **Mint Tokens**: Go to `/mint`, select collateral, enter amount, approve transaction
+3. **View on Explorer**: Copy transaction signature, paste in Solana Explorer (devnet)
+
+## 📚 Learn More
+
+- [Solana Docs](https://docs.solana.com)
+- [Anchor Framework](https://www.anchor-lang.com)
+- [Pyth Network](https://pyth.network)
+- [Next.js Documentation](https://nextjs.org/docs)
+
+## 🤝 Contributing
+
+This project follows the Zypher style guide. See `.github/instructions/` for coding standards.
+
+## 📄 License
+
+MIT
+
+---
+
+Built with ❤️ for Solana ecosystem
+

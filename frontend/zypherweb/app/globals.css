@@ -66,3 +66,27 @@ html {
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* 3D Canvas styles */
+canvas {
+  touch-action: none;
+}
+
+/* Mobile 3D canvas adjustments */
+@media (max-width: 768px) {
+  canvas {
+    min-height: 300px;
+  }
+}
+
+/* Input number spinner hide */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

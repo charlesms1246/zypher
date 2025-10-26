@@ -2,9 +2,14 @@ import {
   Connection, 
   PublicKey, 
   Commitment,
-  LAMPORTS_PER_SOL
+  LAMPORTS_PER_SOL,
+  Transaction,
+  SystemProgram
 } from '@solana/web3.js';
-// Transaction and TransactionInstruction will be imported when implementing mint functionality
+import { Program, AnchorProvider, Idl, web3 } from '@coral-xyz/anchor';
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
+import zypherIdl from '../public/idl/zypher.json';
+import BN from 'bn.js';
 
 /**
  * Solana utility functions for Zypher Protocol
@@ -157,21 +162,210 @@ export async function airdropSol(
 }
 
 /**
- * Interface for mint parameters (to be implemented in mint step)
+ * Interface for mint parameters
  */
 export interface MintParams {
   collateralIndex: number;
-  depositAmount: number;
-  mintAmount: number;
+  depositAmount: bigint;
+  mintAmount: bigint;
 }
 
 /**
- * Placeholder for mint function (to be implemented with Anchor IDL)
- * @param params - Mint parameters
+ * Mints $ZYP stablecoin with collateral using Anchor
+ * @param params - Mint parameters (collateralIndex, depositAmount, mintAmount)
+ * @param wallet - Wallet adapter instance with signTransaction
  * @returns Transaction signature
  */
-export async function mintAegis(params: MintParams): Promise<string> {
-  // TODO: Implement with Anchor IDL in mint UI step
-  console.log("Mint params:", params);
-  throw new Error("Mint function not yet implemented - will be added in mint UI step");
+export async function mintZypher(
+  params: MintParams,
+  wallet: { publicKey: PublicKey | null; signTransaction?: (tx: Transaction) => Promise<Transaction> }
+): Promise<string> {
+  const { collateralIndex, depositAmount, mintAmount } = params;
+  
+  // Validate wallet connection
+  if (!wallet.publicKey || !wallet.signTransaction) {
+    throw new Error("Wallet not connected");
+  }
+
+  try {
+    // Create connection
+    const connection = createConnection();
+    
+    // Program ID from your deployment
+    const programId = new PublicKey("6V3Hg89bfDFzvo55NmyWzNAchNBti6WVuxx3HobdfuXK");
+
+    // Create provider
+    const provider = new AnchorProvider(
+      connection,
+      wallet as any,
+      { commitment: COMMITMENT }
+    );
+
+    // Initialize program with proper typing
+    // Set the programId in the IDL before creating the Program instance
+    const idlWithProgramId = { ...zypherIdl, address: programId.toBase58() };
+    const program = new Program(idlWithProgramId as any, provider);
+
+    // Derive PDAs
+    const [configPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("config_v2")],
+      programId
+    );
+
+    const [positionPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("position"), wallet.publicKey.toBuffer()],
+      programId
+    );
+
+    // Fetch config to get approved collaterals and oracle accounts
+    const configAccount = await (program.account as any).globalConfig.fetch(configPda);
+    
+    // Get the collateral mint from config
+    const collateralMintPubkey = (configAccount as any).approvedCollaterals[collateralIndex];
+    
+    // TEMPORARY FIX: Use real Pyth oracle instead of config's fake oracle
+    // The config has placeholder oracles, so we override with real Pyth devnet oracles
+    const REAL_PYTH_ORACLES = [
+      new PublicKey("J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix"), // Gold/USD
+      new PublicKey("J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix"), // SOL/USD (Treasury placeholder)
+      new PublicKey("HovQMDrbAgAYPCmHVSrezcSmkMtXSSUsLDFANExrZh2J"), // BTC/USD (Real Estate)
+      new PublicKey("EdVCmQ9FSPcVe5YySXDPCRmc8aDQLKJ9xvYBMZPie1Vw"), // ETH/USD (Commodity)
+      new PublicKey("5SSkXsEKQepHHAewytPVwdej4epN1nxgLVM84L4KXgy7"), // USDC/USD (Equity)
+    ];
+    const oracleAccount = REAL_PYTH_ORACLES[collateralIndex];
+    
+    console.log("Using collateral mint:", collateralMintPubkey.toBase58());
+    console.log("Using oracle account:", oracleAccount.toBase58());
+
+    // Get Zypher mint address from config (you'll need to fetch this)
+    // For now, using a placeholder - you should fetch from config account
+    const zypherMintPubkey = new PublicKey(
+      process.env.NEXT_PUBLIC_ZYPHER_MINT || "11111111111111111111111111111111"
+    );
+
+    // Get user's Zypher token account
+    const userZypherToken = await getAssociatedTokenAddress(
+      zypherMintPubkey,
+      wallet.publicKey
+    );
+
+    // Get user's collateral token account
+    const userCollateralToken = await getAssociatedTokenAddress(
+      collateralMintPubkey,
+      wallet.publicKey
+    );
+
+    // Vault token account PDA
+    const [vaultTokenAccount] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault"), collateralMintPubkey.toBuffer()],
+      programId
+    );
+
+    console.log("Calling mint_zypher with:", {
+      collateralIndex,
+      depositAmount: depositAmount.toString(),
+      mintAmount: mintAmount.toString(),
+      position: positionPda.toBase58(),
+      config: configPda.toBase58(),
+      user: wallet.publicKey.toBase58(),
+    });
+
+    // Create transaction with potentially needed ATA creation
+    const tx = new Transaction();
+
+    // Check if user collateral token account exists, if not create it
+    const userCollateralInfo = await connection.getAccountInfo(userCollateralToken);
+    if (!userCollateralInfo) {
+      console.log("Creating user collateral token account...");
+      tx.add(
+        createAssociatedTokenAccountInstruction(
+          wallet.publicKey,
+          userCollateralToken,
+          wallet.publicKey,
+          collateralMintPubkey
+        )
+      );
+      
+      // For devnet testing: mint some collateral tokens to the user
+      // In production, users would need to acquire these tokens first
+      console.log("⚠️  User doesn't have collateral tokens yet.");
+      console.log("For testing, you can mint tokens with:");
+      console.log(`spl-token create-account ${collateralMintPubkey.toBase58()}`);
+      console.log(`spl-token mint ${collateralMintPubkey.toBase58()} 1000`);
+    }
+
+    // Check if user Zypher token account exists, if not create it
+    const userZypherInfo = await connection.getAccountInfo(userZypherToken);
+    if (!userZypherInfo) {
+      console.log("Creating user Zypher token account...");
+      tx.add(
+        createAssociatedTokenAccountInstruction(
+          wallet.publicKey,
+          userZypherToken,
+          wallet.publicKey,
+          zypherMintPubkey
+        )
+      );
+    }
+
+    // Call the mint_zypher instruction
+    const mintIx = await program.methods
+      .mintZypher(
+        collateralIndex,
+        new BN(depositAmount.toString()),
+        new BN(mintAmount.toString())
+      )
+      .accounts({
+        position: positionPda,
+        config: configPda,
+        user: wallet.publicKey,
+        userCollateralToken: userCollateralToken,
+        collateralMint: collateralMintPubkey,
+        vaultTokenAccount: vaultTokenAccount,
+        zypherMint: zypherMintPubkey,
+        userZypherToken: userZypherToken,
+        oracleAccount: oracleAccount,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .instruction();
+
+    tx.add(mintIx);
+
+    // Get recent blockhash
+    const { blockhash } = await connection.getLatestBlockhash();
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = wallet.publicKey;
+
+    // Sign and send transaction
+    const signedTx = await wallet.signTransaction(tx);
+    const signature = await connection.sendRawTransaction(signedTx.serialize());
+
+    // Confirm transaction
+    await connection.confirmTransaction(signature, COMMITMENT);
+
+    console.log("Mint successful! Signature:", signature);
+    return signature;
+
+  } catch (error) {
+    console.error("Mint error:", error);
+    
+    // Handle specific program errors
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    if (errorMessage.includes("UnderCollateralized")) {
+      throw new Error("Insufficient collateral for this mint amount");
+    }
+    if (errorMessage.includes("InvalidCollateral")) {
+      throw new Error("Invalid collateral type selected");
+    }
+    if (errorMessage.includes("ZeroAmount")) {
+      throw new Error("Amount must be greater than zero");
+    }
+    if (errorMessage.includes("OracleMismatch")) {
+      throw new Error("Oracle account mismatch");
+    }
+    
+    throw new Error(errorMessage || "Failed to mint $ZYP");
+  }
 }

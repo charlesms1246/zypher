@@ -21,6 +21,7 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-lang = { version = "0.32.1", features = ["init-if-needed"] }
 anchor-spl = "0.32.1"
 solana-poseidon = "3.0.6"
+sha2 = "0.10"
 
 # Use halo2 versions compatible with Rust 2021
 halo2_proofs = "=0.2.0"

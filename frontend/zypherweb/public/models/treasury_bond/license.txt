@@ -1,0 +1,11 @@
+Model Information:
+* title:	Scroll
+* source:	https://sketchfab.com/3d-models/scroll-7450e494eb654e9b937bb52724220e77
+* author:	FlukierJupiter (https://sketchfab.com/FlukierJupiter)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Scroll" (https://sketchfab.com/3d-models/scroll-7450e494eb654e9b937bb52724220e77) by FlukierJupiter (https://sketchfab.com/FlukierJupiter) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -15,7 +15,7 @@ use privacy_utils::*;
 use zk_circuits::{verify_proof, get_verifying_key, get_proof_params, FieldElement as Fp};
 use halo2curves::group::ff::PrimeField;
 
-declare_id!("AvVY3MVbas5ZQFEC7HNu4bf1BdrF4u2TxrBgovmnLQZm");
+declare_id!("6V3Hg89bfDFzvo55NmyWzNAchNBti6WVuxx3HobdfuXK");
 
 #[program]
 pub mod zypher {
@@ -130,7 +130,7 @@ pub mod zypher {
         token::transfer(cpi_ctx, deposit_amount)?;
 
         // Mint $AEGIS to user
-        let seeds = &[b"config".as_ref(), &[ctx.bumps.config]];
+        let seeds = &[b"config_v2".as_ref(), &[ctx.bumps.config]];
         let signer = &[&seeds[..]];
 
         let cpi_accounts = MintTo {
@@ -448,7 +448,7 @@ pub struct InitializeConfig<'info> {
         init,
         payer = admin,
         space = 8 + 32 + 8 + 8 + 4 + (32 * 5) + 4 + (32 * 5) + 32,
-        seeds = [b"config"],
+        seeds = [b"config_v2"],
         bump
     )]
     pub config: Account<'info, GlobalConfig>,
@@ -462,7 +462,7 @@ pub struct InitializeConfig<'info> {
 pub struct UpdateConfig<'info> {
     #[account(
         mut,
-        seeds = [b"config"],
+        seeds = [b"config_v2"],
         bump,
         constraint = config.admin == admin.key() @ ZypherError::Unauthorized
     )]
@@ -480,15 +480,19 @@ pub struct MintZypher<'info> {
         bump
     )]
     pub position: Account<'info, UserPosition>,
-    #[account(seeds = [b"config"], bump)]
+    #[account(seeds = [b"config_v2"], bump)]
     pub config: Account<'info, GlobalConfig>,
     #[account(mut)]
     pub user: Signer<'info>,
-    #[account(mut)]
+    #[account(mut, constraint = user_collateral_token.mint == collateral_mint.key())]
     pub user_collateral_token: Account<'info, TokenAccount>,
+    pub collateral_mint: Account<'info, Mint>,
     #[account(
-        mut,
-        seeds = [b"vault", config.approved_collaterals[0].as_ref()],
+        init_if_needed,
+        payer = user,
+        token::mint = collateral_mint,
+        token::authority = vault_token_account,
+        seeds = [b"vault", collateral_mint.key().as_ref()],
         bump
     )]
     pub vault_token_account: Account<'info, TokenAccount>,
@@ -511,7 +515,7 @@ pub struct BurnZypher<'info> {
         has_one = owner @ ZypherError::Unauthorized
     )]
     pub position: Account<'info, UserPosition>,
-    #[account(seeds = [b"config"], bump)]
+    #[account(seeds = [b"config_v2"], bump)]
     pub config: Account<'info, GlobalConfig>,
     #[account(mut)]
     pub user: Signer<'info>,
@@ -581,7 +585,7 @@ pub struct LiquidatePosition<'info> {
         bump
     )]
     pub position: Account<'info, UserPosition>,
-    #[account(seeds = [b"config"], bump)]
+    #[account(seeds = [b"config_v2"], bump)]
     pub config: Account<'info, GlobalConfig>,
     #[account(mut)]
     pub liquidator: Signer<'info>,
@@ -598,7 +602,7 @@ pub struct TriggerHedge<'info> {
         bump
     )]
     pub position: Account<'info, UserPosition>,
-    #[account(seeds = [b"config"], bump)]
+    #[account(seeds = [b"config_v2"], bump)]
     pub config: Account<'info, GlobalConfig>,
     #[account(mut)]
     pub agent: Signer<'info>,
@@ -614,7 +618,7 @@ pub struct ManualHedgeOverride<'info> {
         constraint = position.owner == owner.key() @ ZypherError::Unauthorized
     )]
     pub position: Account<'info, UserPosition>,
-    #[account(seeds = [b"config"], bump)]
+    #[account(seeds = [b"config_v2"], bump)]
     pub config: Account<'info, GlobalConfig>,
     #[account(mut)]
     pub owner: Signer<'info>,

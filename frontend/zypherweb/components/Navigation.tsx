@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useEffect, useState } from 'react';
 
 /**
  * Navigation Header
@@ -10,6 +11,12 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
  */
 export default function Navigation() {
   const { connected } = useWallet();
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only rendering wallet button after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-md border-b border-text-secondary/20">
@@ -36,7 +43,7 @@ export default function Navigation() {
             >
               Technology
             </Link>
-            {connected && (
+            {mounted && connected && (
               <>
                 <Link 
                   href="/mint" 
@@ -56,7 +63,11 @@ export default function Navigation() {
 
           {/* Wallet Button */}
           <div className="flex items-center space-x-4">
-            <WalletMultiButton />
+            {mounted ? (
+              <WalletMultiButton />
+            ) : (
+              <div className="h-10 w-32 bg-surface/50 rounded-lg animate-pulse" />
+            )}
           </div>
         </div>
       </div>
