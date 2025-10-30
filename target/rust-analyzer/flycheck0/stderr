@@ -1,0 +1,4 @@
+warning: patch for the non root package will be ignored, specify patch at the workspace root:
+package:   /home/aditya/web3/zypher/zypher/programs/zypher/Cargo.toml
+workspace: /home/aditya/web3/zypher/zypher/Cargo.toml
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.47s

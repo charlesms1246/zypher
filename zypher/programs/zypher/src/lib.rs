@@ -217,19 +217,20 @@ pub mod zypher {
         );
 
         let market = &mut ctx.accounts.market;
-        market.creator = ctx.accounts.creator.key();
-        market.resolution_oracle = ctx.accounts.resolution_oracle.key();
+    market.creator = ctx.accounts.creator.key();
+    market.resolution_oracle = ctx.accounts.resolution_oracle.key();
+    // Store human-readable question on-chain (UTF-8)
+    market.question = question.clone();
         market.yes_pool = 0;
         market.no_pool = 0;
-        market.zk_commitment = poseidon_hash(
-            question.as_bytes(),
-            ctx.accounts.resolution_oracle.key().as_ref(),
-            &resolution_time.to_le_bytes()
-        );
+        // Use a SHA256-based commitment for devnet (privacy_utils.generate_question_commitment)
+        // The original Poseidon implementation may fail in some environments; use the
+        // resilient SHA256 fallback for predictable behavior in frontend flows.
+        market.zk_commitment = generate_question_commitment(&question, resolution_time as u64);
         market.proof_required = question.to_lowercase().contains("hedge") || question.to_lowercase().contains("yield");
         market.resolved = false;
         market.outcome = None;
-        market.resolution_time = resolution_time;
+    market.resolution_time = resolution_time;
 
         Ok(())
     }
@@ -534,7 +535,19 @@ pub struct CreatePredictionMarket<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8 + 32 + 32 + 8 + 8 + 32 + 1 + 2 + 8,
+        // space calculation:
+        // discriminator: 8
+        // creator: 32
+        // resolution_oracle: 32
+        // yes_pool: 8
+        // no_pool: 8
+        // zk_commitment: 32
+        // proof_required: 1
+        // resolved: 1
+        // outcome (Option<bool>): 2
+        // resolution_time: 8
+        // question: 4 (len) + 64 (max)
+        space = 8 + 32 + 32 + 8 + 8 + 32 + 1 + 1 + 2 + 8 + 4 + 64,
         seeds = [b"market", market_id.to_le_bytes().as_ref()],
         bump
     )]
@@ -646,6 +659,7 @@ pub struct UserPosition {
 #[account]
 pub struct PredictionMarket {
     pub creator: Pubkey,
+    pub question: String,
     pub resolution_oracle: Pubkey,
     pub yes_pool: u64,
     pub no_pool: u64,
