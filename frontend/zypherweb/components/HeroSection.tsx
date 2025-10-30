@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import GradientButton from './GradientButton';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 export default function HeroSection() {
@@ -146,41 +147,18 @@ export default function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 1.2 }}
         >
-          <GradientButton variant="primary">
-            Launch App
+          <GradientButton variant="primary" href="/mint">
+            Mint
           </GradientButton>
-          <GradientButton variant="secondary">
-            Read Whitepaper
+          <GradientButton variant="secondary" href="/dashboard">
+            Dashboard
+          </GradientButton>
+          <GradientButton variant="secondary" href="/create-market">
+            Create Market
           </GradientButton>
         </motion.div>
 
-        {/* Scroll indicator */}
-        <motion.div
-          className="absolute bottom-12 left-1/2 -translate-x-1/2"
-          animate={{
-            y: [0, 10, 0],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        >
-          <div className="w-6 h-10 border-2 border-[#00FFB3] rounded-full flex justify-center pt-2">
-            <motion.div
-              className="w-1.5 h-1.5 bg-[#00FFB3] rounded-full"
-              animate={{
-                y: [0, 16, 0],
-                opacity: [1, 0.3, 1],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            />
-          </div>
-        </motion.div>
+        {/* Scroll indicator removed as requested */}
       </div>
     </section>
   );
