@@ -463,20 +463,23 @@ export async function triggerHedge(params: TriggerHedgeParams): Promise<string |
         if (err && typeof (err as any).getLogs === 'function') {
           const logs = await (err as any).getLogs();
           console.error('SendTransactionError logs:', logs);
-          throw new Error(`Transaction simulation failed: ${err.message}. Logs:\n${logs.join('\n')}`);
+          const errMsg = (err as any)?.message ?? String(err);
+          throw new Error(`Transaction simulation failed: ${errMsg}. Logs:\n${logs.join('\n')}`);
         }
 
         // If error contains a `logs` array, include it
         if (err && Array.isArray((err as any).logs) && (err as any).logs.length > 0) {
           console.error('SendTransactionError logs (from err.logs):', (err as any).logs);
-          throw new Error(`Transaction failed: ${err.message}. Logs:\n${(err as any).logs.join('\n')}`);
+          const errMsg = (err as any)?.message ?? String(err);
+          throw new Error(`Transaction failed: ${errMsg}. Logs:\n${(err as any).logs.join('\n')}`);
         }
 
         // If the error includes a transaction signature, try fetching on-chain logs
         const possibleSig = (err as any)?.tx?.signature || (err as any)?.signature;
         if (possibleSig && typeof possibleSig === 'string') {
           try {
-            const tx = await connection.getTransaction(possibleSig, { commitment: COMMITMENT });
+            // Call getTransaction without a commitment to avoid TypeScript Finality mismatch
+            const tx = await connection.getTransaction(possibleSig);
             const fetchedLogs = tx?.meta?.logMessages || [];
             if (fetchedLogs.length) {
               console.error('Fetched transaction logs:', fetchedLogs);
