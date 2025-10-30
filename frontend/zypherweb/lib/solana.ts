@@ -386,10 +386,7 @@ export interface TriggerHedgeParams {
  */
 export async function triggerHedge(params: TriggerHedgeParams): Promise<string | null> {
   const { userPubkey, decision } = params;
-  
-  if (!decision) {
-    throw new Error("Hedge decision must be true to trigger");
-  }
+  // Allow manual override from frontend; frontend will warn the user if decision is false.
 
   try {
     const connection = createConnection();
@@ -400,10 +397,16 @@ export async function triggerHedge(params: TriggerHedgeParams): Promise<string |
     if (!wallet || !wallet.publicKey) {
       throw new Error("Wallet not connected");
     }
+    // For manual user-triggered hedges, call the Anchor RPC for manual_hedge_override
+    // which uses seeds ["position", owner] and requires the owner as signer.
+    const provider = new AnchorProvider(connection, wallet as any, { commitment: COMMITMENT });
+  const idlWithProgramId = { ...zypherIdl, address: programId.toBase58() } as Idl;
+  // Anchor Program constructor accepts (idl, provider) in this workspace setup
+  const program = new Program(idlWithProgramId as any, provider);
 
-    // Derive PDAs (matching Python agent implementation)
+    // Derive PDAs matching program (seed = "position", owner)
     const [positionPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('zypher_position'), userPubkey.toBuffer()],
+      [Buffer.from('position'), userPubkey.toBuffer()],
       programId
     );
 
@@ -412,85 +415,49 @@ export async function triggerHedge(params: TriggerHedgeParams): Promise<string |
       programId
     );
 
-    // Verify position exists
+    // Ensure position exists (user must have minted Zypher)
     try {
-      const accountInfo = await connection.getAccountInfo(positionPda);
-      if (!accountInfo) {
-        throw new Error("No position found. Please mint $ZYP first.");
+      // `program.account` types in this generated IDL may not expose typed properties in TS.
+      // Use an any-cast to access the account client dynamically.
+      const pos = await (program.account as any).userPosition?.fetchNullable
+        ? await (program.account as any).userPosition.fetchNullable(positionPda)
+        : await (program.account as any).UserPosition?.fetchNullable(positionPda);
+      if (!pos) {
+        // If position missing, check token balance to provide a clearer message
+        const zypherMintPubkey = new PublicKey(process.env.NEXT_PUBLIC_ZYPHER_MINT || 'F7NeLHxuJ1LYBGHZ8Gfq4E5JD64YXa2H7vKmRorGBDu7');
+        const userZypAta = await getAssociatedTokenAddress(zypherMintPubkey, wallet.publicKey);
+        try {
+          const balance = await connection.getTokenAccountBalance(userZypAta);
+          const uiAmt = balance?.value?.uiAmount || 0;
+          if (uiAmt > 0) {
+            throw new Error('Token balance found but no on-chain position exists. Please visit /mint and run a mint to initialize your position.');
+          }
+        } catch (e) {
+          // fall through
+        }
+
+        throw new Error('No position found. Please mint $ZYP first.');
       }
-    } catch {
-      throw new Error("No position found. Please mint $ZYP first.");
+    } catch (err) {
+      throw new Error('No position found. Please mint $ZYP first.');
     }
 
-    // Generate ZK proof (256 bytes matching agent implementation)
-    // For MVP: Using simplified proof structure
-    const proof = new Uint8Array(256);
-    
-    // Fill proof with deterministic data based on current state
-    const timestamp = Date.now();
-    const timestampBytes = new Uint8Array(new BigUint64Array([BigInt(timestamp)]).buffer);
-    proof.set(timestampBytes, 0);
-    
-    // Generate MPC shares (2-of-3 threshold matching agent)
-    const mpcShares = generateMpcShares(decision, 3, 2);
+    // Call manual_hedge_override RPC
+    try {
+      const sig = await program.rpc.manualHedgeOverride(decision, {
+        accounts: {
+          position: positionPda,
+          config: configPda,
+          owner: wallet.publicKey,
+        },
+      });
 
-    // Build instruction data matching agent's format:
-    // [instruction_discriminator (8 bytes)][hedge_decision (1 byte)][agent_proof (256 bytes)][mpc_shares (Vec<Vec<u8>>)]
-    const instructionData = Buffer.alloc(8 + 1 + 256 + 4 + mpcShares.reduce((sum, s) => sum + 4 + s.length, 0));
-    let offset = 0;
-
-    // Instruction discriminator for trigger_hedge (compute from "global:trigger_hedge")
-    const discriminator = Buffer.from([0xf6, 0x8a, 0x3c, 0x7d, 0xe3, 0x6f, 0x2a, 0x91]); // SHA256("global:trigger_hedge")[0..8]
-    discriminator.copy(instructionData, offset);
-    offset += 8;
-
-    // Hedge decision (bool as u8)
-    instructionData.writeUInt8(decision ? 1 : 0, offset);
-    offset += 1;
-
-    // Agent proof (256 bytes)
-    instructionData.set(proof, offset);
-    offset += 256;
-
-    // MPC shares length
-    instructionData.writeUInt32LE(mpcShares.length, offset);
-    offset += 4;
-
-    // MPC shares data
-    for (const share of mpcShares) {
-      instructionData.writeUInt32LE(share.length, offset);
-      offset += 4;
-      instructionData.set(share, offset);
-      offset += share.length;
+      console.log('Manual hedge override tx sig:', sig);
+      return sig;
+    } catch (err) {
+      console.error('Anchor manual_hedge_override failed:', err);
+      throw err;
     }
-
-    // Create transaction with correct accounts
-    const transaction = new Transaction();
-    transaction.add({
-      keys: [
-        { pubkey: positionPda, isSigner: false, isWritable: true },
-        { pubkey: configPda, isSigner: false, isWritable: false },
-        { pubkey: userPubkey, isSigner: true, isWritable: true },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      programId,
-      data: instructionData,
-    });
-
-    // Get recent blockhash
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = userPubkey;
-
-    // Sign and send transaction
-    const signed = await wallet.signTransaction(transaction);
-    const signature = await connection.sendRawTransaction(signed.serialize());
-    
-    // Confirm transaction
-    await connection.confirmTransaction(signature, COMMITMENT);
-    
-    console.log("Hedge triggered successfully:", signature);
-    return signature;
     
   } catch (error) {
     console.error("Trigger hedge error:", error);
