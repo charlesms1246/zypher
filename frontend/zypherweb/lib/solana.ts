@@ -456,6 +456,42 @@ export async function triggerHedge(params: TriggerHedgeParams): Promise<string |
       return sig;
     } catch (err) {
       console.error('Anchor manual_hedge_override failed:', err);
+
+      // If Anchor's SendTransactionError is thrown, it may expose getLogs() for richer diagnostics.
+      try {
+        // If error object has a getLogs() method (Anchor v0.XX SendTransactionError), call it
+        if (err && typeof (err as any).getLogs === 'function') {
+          const logs = await (err as any).getLogs();
+          console.error('SendTransactionError logs:', logs);
+          throw new Error(`Transaction simulation failed: ${err.message}. Logs:\n${logs.join('\n')}`);
+        }
+
+        // If error contains a `logs` array, include it
+        if (err && Array.isArray((err as any).logs) && (err as any).logs.length > 0) {
+          console.error('SendTransactionError logs (from err.logs):', (err as any).logs);
+          throw new Error(`Transaction failed: ${err.message}. Logs:\n${(err as any).logs.join('\n')}`);
+        }
+
+        // If the error includes a transaction signature, try fetching on-chain logs
+        const possibleSig = (err as any)?.tx?.signature || (err as any)?.signature;
+        if (possibleSig && typeof possibleSig === 'string') {
+          try {
+            const tx = await connection.getTransaction(possibleSig, { commitment: COMMITMENT });
+            const fetchedLogs = tx?.meta?.logMessages || [];
+            if (fetchedLogs.length) {
+              console.error('Fetched transaction logs:', fetchedLogs);
+              throw new Error(`Transaction ${possibleSig} failed. Logs:\n${fetchedLogs.join('\n')}`);
+            }
+          } catch (fetchErr) {
+            console.warn('Failed to fetch transaction logs for signature:', possibleSig, fetchErr);
+          }
+        }
+      } catch (diagnosticErr) {
+        // If we constructed a diagnostic error, rethrow it
+        throw diagnosticErr;
+      }
+
+      // Fallback: rethrow original error
       throw err;
     }
     
