@@ -88,6 +88,6 @@ MIT – **Open-Source Forever**
 
 ## 🎯 Built For
 **Solana Cypherpunk Hackathon**  
-[Colosseum Submission](https://colosseum.org/cypherpunk) 
+[Colosseum Submission](https://arena.colosseum.org/projects/explore/zypher-1) 
 
 ---
