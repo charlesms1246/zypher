@@ -9,7 +9,7 @@
 
 **Built for Solana Cypherpunk Hackathon** – **$ZYP**: Encrypted CDPs, ZK Predictions, Autonomous Hedges. **MiCA-Ready. Scales to $100M TVL.**
 
-[![Demo Video](https://img.shields.io/badge/Watch-Demo-red)](https://youtube.com/your-video-link) | [Live Devnet](https://zyphersolana.vercel.app/)
+[![Demo Video](https://img.shields.io/badge/Watch-Demo-red)](https://www.youtube.com/watch?v=TcD4CKJxnXc) | [Live Devnet](https://zyphersolana.vercel.app/)
 
 ## ✨ Features
 - **$ZYP Stablecoin**: Overcollateralized (150%) by RWAs (gold, treasuries) – USD-pegged.
